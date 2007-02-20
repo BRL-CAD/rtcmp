@@ -116,21 +116,22 @@ main(int argc, char **argv)
 #define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMRAYS/prefix##_retpack->t, (double)NUMRAYS/prefix##_retpack->c);
 
 	TRY(BRLCAD,rt);
-	SHOW(rt);
 
 #ifdef HAVE_TIE
 	TRY(ADRT,adrt);
-	SHOW(adrt);
 #else
 	if(mode&ADRT) printf("ADRT support not compiled in\n");
 #endif
 
 #ifdef HAVE_RAYFORCE
 	TRY(RAYFORCE,rayforce);
-	SHOW(rayforce);
 #else
 	if(mode&RAYFORCE) printf("RAYFORCE support not compiled in\n");
 #endif
 	
+	SHOW(rt);
+	SHOW(rayforce);
+	SHOW(adrt);
+
 	return EXIT_SUCCESS;
 }
