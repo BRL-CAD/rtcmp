@@ -45,6 +45,7 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 {
 	union tree *ret_tree;
         struct shell *s;
+	char *path;
 
 	if(curtree->tr_op == OP_NOP) return curtree;
 	ret_tree = nmg_booltree_evaluate(curtree, tsp->ts_tol, &rt_uniresource); 
@@ -56,6 +57,8 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 	BN_CK_TOL(tsp->ts_tol);
 
 	nmg_triangulate_model(ret_tree->tr_d.td_r->m_p, tsp->ts_tol);
+
+	path = strdup(pathp);
 
 	/* for each shell */
         for(BU_LIST_FOR(s, shell, &ret_tree->tr_d.td_r->s_hd))
@@ -75,8 +78,11 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
                         if(fu->orientation != OT_SAME)
                                 continue;
 
-                        /* Grab the face normal if needed */
 #if 0
+                        /* 
+			 * Grab the face normal if needed
+			 * this might be used for orienting triangles?
+			 */
                         NMG_GET_FU_NORMAL(facet_normal, fu);
 			printf("\tN: %.2f %.2f %.2f\t", V3ARGS(facet_normal));
 #endif
@@ -84,7 +90,7 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 			/* for each triangle */
                         for(BU_LIST_FOR(lu, loopuse, &fu->lu_hd))
                         {
-                                struct edgeuse *eu;
+                                 struct edgeuse *eu;
 				TIE_3 t[3];
 				int i = 0;
 
@@ -100,7 +106,7 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 					VMOVE(t[i].v, eu->vu_p->v_p->vg_p->coord);
 					++i;
                                 }
-				tie_push((tie_t *)client_data, t, 1, pathp, 0);
+				tie_push((tie_t *)client_data, t, 1, path, 0);
                         }
                 }
         }
@@ -115,6 +121,9 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 static void *
 hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 {
+	struct part *p;
+	p = (struct part *)ptr;
+
 	return NULL;
 }
 
@@ -128,6 +137,10 @@ adrt_shoot(void *geom, struct xray * ray)
 	tie_ray_t r;
 	tie_id_t id;
 	int ptr;
+
+	VMOVE(r.pos.v,ray->r_pt);
+	VMOVE(r.dir.v,ray->r_dir);
+	r.depth = 0;
 
 	tie_work(t, &r, &id, hitfunc, (void *)&ptr);
 
@@ -177,6 +190,8 @@ adrt_constructor(const char *file, int numreg, const char **regs)
 	struct bn_tol            tol;
 	struct model		*model;
 
+	nmg_bool_eval_silent = 1;
+
 	model = nmg_mm();
 
         ttol.magic = RT_TESS_TOL_MAGIC;
@@ -204,7 +219,6 @@ adrt_constructor(const char *file, int numreg, const char **regs)
                 return NULL;
         }
         db_dirbuild(dbip);
-
 
         BN_CK_TOL(tree_state.ts_tol);
         RT_CK_TESS_TOL(tree_state.ts_ttol);
