@@ -113,7 +113,6 @@ main(int argc, char **argv)
 	}
 
 #define TRY(flag,prefix) if(mode&flag) prefix##_retpack = perfcomp(#prefix, argc, argv, nthreads, nproc, prefix##_constructor, prefix##_getbox, prefix##_getsize, prefix##_shoot, prefix##_destructor)
-#define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMRAYS/prefix##_retpack->t, (double)NUMRAYS/prefix##_retpack->c);
 
 	TRY(BRLCAD,rt);
 
@@ -128,10 +127,20 @@ main(int argc, char **argv)
 #else
 	if(mode&RAYFORCE) printf("RAYFORCE support not compiled in\n");
 #endif
+#undef TRY
 	
+#define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMRAYS/prefix##_retpack->t, (double)NUMRAYS/prefix##_retpack->c)
 	SHOW(rt);
-	SHOW(rayforce);
 	SHOW(adrt);
+	SHOW(rayforce);
+#undef SHOW
+
+	printf("\n");
+#define SPEEDUP(a,b) if(a##_retpack && b##_retpack) printf(#b" shows %.3f times speedup over "#a"\n", a##_retpack->c / b##_retpack->c - 1);
+	SPEEDUP(rt,adrt);
+	SPEEDUP(rt,rayforce);
+	SPEEDUP(adrt,rayforce);
+#undef SPEEDUP
 
 	return EXIT_SUCCESS;
 }
