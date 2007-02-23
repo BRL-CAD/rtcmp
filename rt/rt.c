@@ -46,6 +46,12 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 		c->in_dist = pp->pt_inhit->hit_dist;
 		c->out_dist = pp->pt_outhit->hit_dist;
 		strncpy(c->region, pp->pt_regionp->reg_name, NAMELEN-1);
+		RT_HIT_NORM(pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray);
+		RT_HIT_NORM(pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray);
+		VMOVE(c->in, pp->pt_inhit->hit_point);
+		VMOVE(c->out, pp->pt_outhit->hit_point);
+		VMOVE(c->innorm, pp->pt_inhit->hit_normal);
+		VMOVE(c->outnorm, pp->pt_outhit->hit_normal);
 	}
 	a->a_uptr = (genptr_t)f;
 	return 0;
