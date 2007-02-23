@@ -58,7 +58,8 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 
 	nmg_triangulate_model(ret_tree->tr_d.td_r->m_p, tsp->ts_tol);
 
-	path = strdup(pathp);
+	/* extract the path name... we must free this memory! */
+	path = db_path_to_string(pathp);
 
 	/* for each shell */
         for(BU_LIST_FOR(s, shell, &ret_tree->tr_d.td_r->s_hd))
