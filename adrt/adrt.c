@@ -48,7 +48,43 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 	char *path;
 
 	if(curtree->tr_op == OP_NOP) return curtree;
+
+	if( BU_SETJUMP )  {
+		/* Error, bail out */
+		char *sofar;
+		printf("blorp\n");
+		BU_UNSETJUMP;		/* Relinquish the protection */
+
+		sofar = db_path_to_string(pathp);
+		bu_log( "FAILED in Boolean evaluation: %s\n", sofar );
+		bu_free( (char *)sofar, "sofar" );
+
+		/* Release any intersector 2d tables */
+		nmg_isect2d_final_cleanup();
+
+		/* Release the tree memory & input regions */
+/*XXX*/			/* db_free_tree(curtree);*/		/* Does an nmg_kr() */
+
+		/* Get rid of (m)any other intermediate structures */
+		if( (*tsp->ts_m)->magic == NMG_MODEL_MAGIC )  {
+			nmg_km(*tsp->ts_m);
+		} else {
+			bu_log("WARNING: tsp->ts_m pointer corrupted, ignoring it.\n");
+		}
+
+		/* Now, make a new, clean model structure for next pass. */
+		*tsp->ts_m = nmg_mm();
+		db_free_tree(curtree, &rt_uniresource);		/* Does an nmg_kr() */
+
+		BU_GETUNION(curtree, tree);
+		curtree->magic = RT_TREE_MAGIC;
+		curtree->tr_op = OP_NOP;
+		return curtree;
+	}
+
 	ret_tree = nmg_booltree_evaluate(curtree, tsp->ts_tol, &rt_uniresource); 
+	BU_UNSETJUMP;		/* Relinquish the protection */
+
 	if(ret_tree == NULL) { printf("Emptry region\n"); return NULL; }
 
 	/* some sanity checking... */
@@ -56,7 +92,28 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 	NMG_CK_MODEL(ret_tree->tr_d.td_r->m_p);
 	BN_CK_TOL(tsp->ts_tol);
 
+
+	if( BU_SETJUMP )
+	{
+		BU_UNSETJUMP;
+
+		nmg_isect2d_final_cleanup();
+
+		if( (*tsp->ts_m)->magic == NMG_MODEL_MAGIC )
+			nmg_km(*tsp->ts_m);
+		else
+			bu_log("WARNING: tsp->ts_m pointer corrupted, ignoring it.\n");
+
+		*tsp->ts_m = nmg_mm();
+		db_free_tree(curtree, &rt_uniresource);		/* Does an nmg_kr() */
+
+		BU_GETUNION(curtree, tree);
+		curtree->magic = RT_TREE_MAGIC;
+		curtree->tr_op = OP_NOP;
+		return curtree;
+	} 
 	nmg_triangulate_model(ret_tree->tr_d.td_r->m_p, tsp->ts_tol);
+	BU_UNSETJUMP;
 
 	/* extract the path name... we must free this memory! */
 	path = db_path_to_string(pathp);
@@ -125,6 +182,7 @@ hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 	struct part *p;
 	p = (struct part *)ptr;
 
+	/* printf("%s -\t(%.2f %.2f %.2f)\t%.2f\t(N: %.2f %.2f %.2f)\n", (char *)trie->ptr, V3ARGS(id->pos.v), id->dist, V3ARGS(id->norm.v)); */
 	return NULL;
 }
 
