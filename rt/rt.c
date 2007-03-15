@@ -52,6 +52,7 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 		VMOVE(c->out, pp->pt_outhit->hit_point);
 		VMOVE(c->innorm, pp->pt_inhit->hit_normal);
 		VMOVE(c->outnorm, pp->pt_outhit->hit_normal);
+		c->depth = c->out_dist - c->in_dist;
 	}
 	a->a_uptr = (genptr_t)f;
 	return 0;
