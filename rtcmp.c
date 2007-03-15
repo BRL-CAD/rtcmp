@@ -30,6 +30,7 @@
 # include "rayforce/rayforce.h"
 #endif
 
+#include "dry/dry.h"
 #include "rt/rt.h"
 
 #undef PARALLEL		/* brlcad defines this, but I want my own */
@@ -40,6 +41,7 @@
 #define ADRT		0x04
 #define BRLCAD		0x08
 #define RAYFORCE	0x10
+#define DRY		0x20	/* oh the horror */
 
 void
 doversion(char *name)
@@ -70,9 +72,9 @@ dohelp(char *name)
 int 
 main(int argc, char **argv)
 {
-	int c, mode = 0, nthreads = 0, nproc = 0;
+	int c, mode = DRY, nthreads = 0, nproc = 0;
 	char *pname = *argv;
-	struct retpack_s *rt_retpack = NULL, *adrt_retpack = NULL, *rayforce_retpack = NULL;
+	struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *adrt_retpack = NULL, *rayforce_retpack = NULL;
 
 	while( (c = getopt( argc, argv, "abd:hp:rsv")) != -1 ){ 
 		switch(c) 
@@ -114,6 +116,7 @@ main(int argc, char **argv)
 
 #define TRY(flag,prefix) if(mode&flag) prefix##_retpack = perfcomp(#prefix, argc, argv, nthreads, nproc, prefix##_constructor, prefix##_getbox, prefix##_getsize, prefix##_shoot, prefix##_destructor)
 
+	TRY(DRY,dry);
 	TRY(BRLCAD,rt);
 
 #ifdef HAVE_TIE
@@ -130,6 +133,7 @@ main(int argc, char **argv)
 #undef TRY
 	
 #define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMRAYS/prefix##_retpack->t, (double)NUMRAYS/prefix##_retpack->c)
+	SHOW(dry);
 	SHOW(rt);
 	SHOW(adrt);
 	SHOW(rayforce);
