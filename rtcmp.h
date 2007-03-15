@@ -35,10 +35,10 @@ struct part {
 	char region[NAMELEN];	/* human readable region name */
 	double in_dist;
 	point_t in;
-	vect_t innorm;		/* unused */
+	vect_t innorm;
 	double out_dist;
 	point_t out;
-	vect_t outnorm;		/* unused */
+	vect_t outnorm;
 	double depth;
 	float obliquity;	/* unused */
 	float curvature;	/* unused */
