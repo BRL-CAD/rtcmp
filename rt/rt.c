@@ -105,6 +105,8 @@ rt_constructor(char *file, int numreg, char **regs)
 	RT_APPLICATION_INIT(a);
 	a->a_magic = RT_AP_MAGIC;	/* just in case we want to throw
 					 * debugging on */
+
+	a->a_logoverlap = rt_silent_logoverlap;
 	a->a_hit = hit;
 	a->a_miss = miss;
 	a->a_rt_i = rt_dirbuild(file, descr, 0);	/* attach the db file */
