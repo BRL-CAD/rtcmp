@@ -40,7 +40,7 @@
 
 /*** internal functions, should all be static ***/
 
-union tree *
+static union tree *
 region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *curtree, genptr_t client_data)
 {
 	union tree *ret_tree;
@@ -85,7 +85,10 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 	ret_tree = nmg_booltree_evaluate(curtree, tsp->ts_tol, &rt_uniresource); 
 	BU_UNSETJUMP;		/* Relinquish the protection */
 
-	if(ret_tree == NULL) { printf("Emptry region\n"); return NULL; }
+	if(ret_tree == NULL || ret_tree->tr_d.td_r == NULL) { 
+		printf("Empty region\n"); 
+		return NULL; 
+	}
 
 	/* some sanity checking... */
 	NMG_CK_REGION(ret_tree->tr_d.td_r);
@@ -179,31 +182,56 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 static void *
 hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 {
-	struct part *p;
-	p = (struct part *)ptr;
-
-	/* printf("%s -\t(%.2f %.2f %.2f)\t%.2f\t(N: %.2f %.2f %.2f)\n", (char *)trie->ptr, V3ARGS(id->pos.v), id->dist, V3ARGS(id->norm.v)); */
+	/* Ugh. Three possible conditions
+	 *  1) p and pl are NULL (first hit this shot
+	 *  2) part outinfo is not set (in was done, now we do out)
+	 *  3) outinfo is set (entering the second region)
+	 *
+	 * Note that p is a pair of part pointers packed a peck of pickled...
+	 * p[0] is the *LAST* part on the list. p[1] is the FIRST.
+	 */
+	struct part **p = (struct part **)ptr;
+	if((*p) && (*p)->depth < 0.0) {
+		VMOVE((*p)->out, id->pos.v);
+		VMOVE((*p)->outnorm, id->norm.v);
+		(*p)->out_dist = id->dist;
+		(*p)->depth = id->dist - (*p)->in_dist;
+	} else {
+		if(!*p)
+			p[1] = (*p) = get_part();
+		else {
+			(*p)->next = get_part();
+			(*p) = (*p)->next;
+		}
+		strncpy((*p)->region,(char *)trie->ptr,NAMELEN-1);
+		(*p)->depth = -1.0;	/* signal for the next hit to be out */
+		VMOVE((*p)->in, id->pos.v);
+		VMOVE((*p)->innorm, id->norm.v);
+		(*p)->in_dist = id->dist;
+	}
 	return NULL;
 }
 
 
 
 /*** interface functions ***/
+
 struct part    *
 adrt_shoot(void *geom, struct xray * ray)
 {
 	RESOLVE(geom);
 	tie_ray_t r;
 	tie_id_t id;
-	int ptr;
+	struct part *p[2];
 
 	VMOVE(r.pos.v,ray->r_pt);
 	VMOVE(r.dir.v,ray->r_dir);
 	r.depth = 0;
+	p[0] = p[1] = NULL;
 
-	tie_work(t, &r, &id, hitfunc, (void *)&ptr);
+	tie_work(t, &r, &id, hitfunc, (void *)p);
 
-	return NULL;
+	return p[1];
 }
 
 /*
@@ -226,6 +254,10 @@ adrt_getsize(void *g)
 	 * pair, this should yeild the scalar distance to the intersection
 	 * point. */
 	return sqrt(S(0) + S(1) + S(2));
+#undef SQ
+#undef GTR
+#undef F
+#undef S
 }
 
 int
