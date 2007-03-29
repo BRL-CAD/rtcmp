@@ -9,10 +9,14 @@
 #include <common.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #ifdef HAVE_STRING_H
 #  include <string.h>
@@ -27,51 +31,45 @@
 
 #include "tri.h"
 
-char *GLOBAL_filename = NULL;
-struct tri_region_s *GLOBAL_trireg = NULL;
+#define FLTPERTRI (3*3)
+#define TRISIZE (sizeof(fastf_t)*FLTPERTRI)
 
-int havecache(char *filename) {
+static char *GLOBAL_filename = NULL;
+static struct tri_region_s *GLOBAL_trireg = NULL;
+
+static int 
+havecache(char *filename) 
+{
 	struct stat sb;
 	return stat(filename,&sb) == 0 && sb.st_mode&S_IFREG && sb.st_size>0;
 }
 
-int readint(int fd, int *i) {
-	int len;
-	len = read(fd,i,sizeof(int));
-	*i = ntohl(*i);
-	return len;
-}
-
-int readtri(int fd, tri_t *t) {
-	int i,j;
-	union {
-		fastf_t f;
-		int i;
-	} v;
-	for(i=0;i<3;++i) for(j=0;j<3;++j) {
-		if(readint(fd, &v.i) == 0) 
-			return 0;
-		(*t)[i][j] = v.f;
-	}
-	return 1;
-}
-
-struct tri_region_s *readregion(int fd) {
-	int len, i;
+static struct tri_region_s *
+readregion(int fd) 
+{
+	long len;
 	struct tri_region_s *r;
+	fastf_t *buf;
 
-	if(readint(fd,&len) != sizeof(int)) return NULL;
+	if(read(fd,&len, sizeof(long)) != sizeof(long)) return NULL;
+	len = ntohl(len);
 	r = (struct tri_region_s *)malloc(sizeof(struct tri_region_s));
 	r->name = (char *)malloc(len+1);
 	if(read(fd,r->name,len) != len) return NULL;
 	r->name[len] = 0;	/* verify zero termination */
-	if(readint(fd,&r->ntri) != sizeof(int)) return NULL;
-	r->t = (tri_t *)malloc(sizeof(tri_t) * len);
-	for(i=0;i<r->ntri;i++) readtri(fd,&r->t[i]);
+	if(read(fd,&r->ntri, sizeof(long)) != sizeof(long)) return NULL;
+	r->ntri = ntohl(r->ntri);
+	r->t = (fastf_t *)malloc(TRISIZE * r->ntri);
+	buf = (fastf_t *)malloc(TRISIZE * r->ntri);
+	read(fd,buf,TRISIZE * r->ntri);
+	ntohd(r->t, buf, 9*r->ntri);
+	free(buf);
 	return r;
 }
 
-struct tri_region_s *loadcache(char *filename) {
+static struct tri_region_s *
+loadcache(char *filename) 
+{
 	struct tri_region_s *r;
 	int fd;
 
@@ -85,20 +83,24 @@ struct tri_region_s *loadcache(char *filename) {
 	return GLOBAL_trireg;
 }
 
-int writeint(int fd, int *val){ int v = htonl(*val); return write(fd,&v,sizeof(int)); }
-int writetri(int fd, tri_t t) { int r=0,i,j; for(i=0;i<3;++i) for(j=0;j<3;++j) r+=writeint(fd,(int *)&t[i][j]); return r; }
-int savecache(char *filename, struct tri_region_s *regs)
+static int 
+savecache(char *filename, struct tri_region_s *regs)
 {
-	int fd, i, len;
+	long fd, len;
+	fastf_t *buf;
 	if(regs == NULL) return -1;
-	fd = open(filename,O_WRONLY|O_CREAT,0644);
+	fd = open(filename,O_WRONLY|O_CREAT|O_TRUNC,0644);
 	if(fd<0) { perror(filename); return -1; }
 	while(regs) {
-		len = strlen(regs->name);
-		writeint(fd,&len);
-		write(fd,regs->name,len);
-		writeint(fd,&regs->ntri);
-		for(i=0;i<regs->ntri;i++) writetri(fd,regs->t[i]);
+		len = htonl(strlen(regs->name));
+		write(fd,&len,sizeof(long));
+		write(fd,regs->name,ntohl(len));
+		len = htonl(regs->ntri);
+		write(fd,&len,sizeof(long));
+		buf = (fastf_t *)malloc(TRISIZE * regs->ntri);
+		htond(buf,regs->t, FLTPERTRI * regs->ntri);
+		write(fd,buf,TRISIZE*regs->ntri);
+		free(buf);
 		regs = regs->next;
 	}
 	close(fd);
@@ -110,7 +112,6 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 {
 	union tree *ret_tree;
         struct shell *s;
-	char *path;
 	struct tri_region_s *reg;
 
 	if(curtree->tr_op == OP_NOP) return curtree;
@@ -222,25 +223,29 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 			/* for each triangle */
                         for(BU_LIST_FOR(lu, loopuse, &fu->lu_hd))
                         {
-                                 struct edgeuse *eu;
-				point_t t[3];
+                                struct edgeuse *eu;
 				int i = 0;
 
                                 NMG_CK_LOOPUSE(lu);
                                 if(BU_LIST_FIRST_MAGIC(&lu->down_hd) != NMG_EDGEUSE_MAGIC)
                                         continue;
 
+				/* spinning a realloc gets really ugly on most
+				 * malloc's (doug lea's with full mmu is the
+				 * only place it's "ok" afaik */
 				reg->ntri++;
-				reg->t = (tri_t *)bu_realloc((void *)reg->t, sizeof(tri_t)*(reg->ntri+1));
+				reg->t = (fastf_t *)bu_realloc((void *)reg->t, TRISIZE*reg->ntri, "region triangle area");
 
 				/* for each vertex */
                                 for(BU_LIST_FOR(eu, edgeuse, &lu->down_hd))
                                 {
+					fastf_t *vert;
 					if(i>=3)
 						printf("Neat, a triangle with more than 3 edges\n");
                                         NMG_CK_EDGEUSE(eu);
                                         NMG_CK_VERTEX(eu->vu_p->v_p);
-					VMOVE(reg->t[reg->ntri][i] , eu->vu_p->v_p->vg_p->coord);
+					vert = reg->t + 3*(3*(reg->ntri-1) + i);
+					VMOVE(vert, eu->vu_p->v_p->vg_p->coord);
 					++i;
                                 }
                         }
@@ -253,7 +258,6 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 struct tri_region_s *
 tri_load(const char *filename, int numreg, const char **regs)
 {
-	char descr[BUFSIZ];
 	struct db_i *dbip;
 	struct db_tree_state tree_state;
 
