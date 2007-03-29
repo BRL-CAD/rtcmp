@@ -143,15 +143,13 @@ adrt_constructor(const char *file, int numreg, const char **regs)
 
 	te = (tie_t *)bu_malloc(sizeof(tie_t),"TIE constructor");
 	tie_init(te,0);	/* prep memory */
-
 	reg = tri_load(file,numreg,regs);
-
 	while(reg) {
 		int i;
-		printf("adrt: %s\t%d\n", reg->name, reg->ntri);
-		for(i=0;i<reg->ntri;++i) {
-
-		}
+		float *buf;
+		buf = (float *)bu_malloc(sizeof(float) * 3 * 3 * reg->ntri);
+		for(i=0;i< 3 * 3 * reg->ntri; ++i) buf[i] = (float)(reg->t[i]);
+		tie_push(te,(TIE_3 *)buf,reg->ntri,reg->name,0);
 		reg = reg->next;
 	}
 	tie_prep(te);	/* generate the K-D tree */
