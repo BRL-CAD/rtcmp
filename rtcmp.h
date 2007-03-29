@@ -17,7 +17,9 @@
 # include <brlcad/raytrace.h>
 #endif
 
-#define NUMRAYS		1e5
+#define NUMRAYS		((int)1e5)		/* this is PER VIEW */
+#define NUMVIEWS	6			/* this refers to data in perfcomp.c */
+#define NUMTRAYS	(NUMRAYS*NUMVIEWS)	/* total rays shot */
 
 #define PANIC(x) printf(x),exit(-1)
 
@@ -50,9 +52,9 @@ int free_part_r (struct part *);	/* recursive free */
 int end_part();				/* clean up part memory manager */
 
 struct retpack_s {
-	double t;	/* wall time */
-	double c;	/* cpu clock time */
-	struct part *p;	/* ordered set of accuracy partition lists */
+	double t;			/* wall time */
+	double c;			/* cpu clock time */
+	struct part *p[NUMVIEWS];	/* ordered set of accuracy partition lists */
 };
 
 #endif
