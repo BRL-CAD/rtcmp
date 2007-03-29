@@ -71,7 +71,7 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 		radius = getsize(inst);
 		getbox(inst, bb, bb+1);
 		VADD2SCALE(bb[2], *bb, bb[1], 0.5);	/* (bb[0]+bb[1])/2 */
-		for(i=0;i<NUMVIEWS;i++) VUNITIZE(dir[j]); /* normalize the dirs */
+		for(i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
 	}
 	/* XXX: if locking, we can unlock here */
 
