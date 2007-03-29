@@ -36,7 +36,7 @@ dry_shoot(void *g, struct xray * ray)
 double
 dry_getsize(void *g)
 {
-	return 1.0;
+	return -1.0;	/* MUST be negative for perfcomp! */
 }
 
 int
