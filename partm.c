@@ -27,7 +27,7 @@ static int nfree = 0;
  * slab allocator. Automatically called when the free list is empty, but can be
  * called any old time.
  */
-int alloc_part(int count) 
+static int alloc_part(int count) 
 {
 	struct part *n, *t;
 	static int lastcount = -1;
