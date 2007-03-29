@@ -116,8 +116,8 @@ main(int argc, char **argv)
 
 #define TRY(flag,prefix) if(mode&flag) prefix##_retpack = perfcomp(#prefix, argc, argv, nthreads, nproc, prefix##_constructor, prefix##_getbox, prefix##_getsize, prefix##_shoot, prefix##_destructor)
 
-	TRY(DRY,dry);
-	TRY(BRLCAD,rt);
+	TRY(DRY,dry);	/* prime it */
+	TRY(BRLCAD,rt);	/* librt is not optional. */
 
 #ifdef HAVE_TIE
 	TRY(ADRT,adrt);
@@ -131,8 +131,16 @@ main(int argc, char **argv)
 	if(mode&RAYFORCE) printf("RAYFORCE support not compiled in\n");
 #endif
 #undef TRY
+
+	{
+		int i;
+		for(i=0;i<NUMVIEWS;++i) { 
+			printf("LRT:  "); showpart(rt_retpack->p[i]); printf("\n");
+			printf("ADRT: "); showpart(adrt_retpack->p[i]); printf("\n\n");
+		}
+	}
 	
-#define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMRAYS/prefix##_retpack->t, (double)NUMRAYS/prefix##_retpack->c)
+#define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMTRAYS/prefix##_retpack->t, (double)NUMTRAYS/prefix##_retpack->c)
 	SHOW(dry);
 	SHOW(rt);
 	SHOW(adrt);
