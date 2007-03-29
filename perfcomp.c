@@ -16,7 +16,7 @@ void
 showpart(struct part *p) 
 {
 	while(p) {
-		printf("(%f) %s\t", p->depth, p->region);
+		printf("(%.2f)%s  ", p->depth, p->region);
 		p = p->next;
 	}
 	return;
@@ -49,7 +49,7 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 
 	static vect_t dir[NUMVIEWS] = {
 		{0,0,1}, {0,1,0}, {1,0,0},	/* axis */
-		{0,0,1}, {0,0,1}, {0,0,1}	/* non-axis */
+		{1,1,1}, {1,4,-1}, {-1,-2,4}	/* non-axis */
 	};
 
 	prefix = prefix;
@@ -71,6 +71,7 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 		radius = getsize(inst);
 		getbox(inst, bb, bb+1);
 		VADD2SCALE(bb[2], *bb, bb[1], 0.5);	/* (bb[0]+bb[1])/2 */
+		for(i=0;i<NUMVIEWS;i++) VUNITIZE(dir[j]); /* normalize the dirs */
 	}
 	/* XXX: if locking, we can unlock here */
 
