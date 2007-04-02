@@ -148,7 +148,7 @@ main(int argc, char **argv)
 #undef SHOW
 
 	printf("\n");
-#define SPEEDUP(a,b) if(a##_retpack && b##_retpack) printf(#b" shows %.3f times speedup over "#a"\n", a##_retpack->c / b##_retpack->c - 1);
+#define SPEEDUP(a,b) if(a##_retpack && b##_retpack) printf(#b" shows %.3f times speedup over "#a"\n", (a##_retpack->c-dry_retpack->c) / (b##_retpack->c-dry_retpack->c) - 1);
 	SPEEDUP(rt,adrt);
 	SPEEDUP(rt,rayforce);
 	SPEEDUP(adrt,rayforce);
