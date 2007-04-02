@@ -67,7 +67,7 @@ hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 			(*p)->next = get_part();
 			(*p) = (*p)->next;
 		}
-		strncpy((*p)->region,(char *)trie->ptr,NAMELEN-1);
+		strncpy((*p)->region,(char *)trie->ptr,NAMELEN-1);	/* may be a big cost? punt in dry hopefully fixes this */
 		(*p)->depth = -1.0;	/* signal for the next hit to be out */
 		VMOVE((*p)->in, id->pos.v);
 		VMOVE((*p)->innorm, id->norm.v);
@@ -93,6 +93,7 @@ adrt_shoot(void *geom, struct xray * ray)
 	r.depth = 0;
 	p[0] = p[1] = NULL;
 
+	/* multithread this for parallel */
 	tie_work(t, &r, &id, hitfunc, (void *)p);
 
 	return p[1];
