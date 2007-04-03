@@ -273,8 +273,10 @@ tri_load(const char *filename, int numreg, const char **regs)
 
 	/* try to quickly load a binary cache file */
 	snprintf(cachename,BUFSIZ,"%s.tricache",filename);
-	if(havecache(cachename))
+	if(havecache(cachename)) {
+		printf("Found triangle cache, using it\n");
 		return loadcache(cachename);
+	}
 
 	/* oh crap. */
 	GLOBAL_filename = strdup(filename);
