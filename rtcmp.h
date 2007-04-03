@@ -51,6 +51,9 @@ int free_part (struct part *);		/* 'free' part, puts back in memory pool (loses 
 int free_part_r (struct part *);	/* recursive free */
 int end_part();				/* clean up part memory manager */
 
+void showpart(struct part *p);
+double cmppartl(struct part *p1, struct part *p2);
+
 struct retpack_s {
 	double t;			/* wall time */
 	double c;			/* cpu clock time */
