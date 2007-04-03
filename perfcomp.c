@@ -22,6 +22,28 @@ showpart(struct part *p)
 	return;
 }
 
+/* 
+ * compare two partition lists. Return the RMS of deviation (both indist and
+ * outdist). If the regions don't match up, return a negative number
+ */
+double
+cmppartl(struct part *p1, struct part *p2)
+{
+	float rms = 0.0;
+	while(p1&&p2) {
+		if( strncmp(p1->region,p2->region,NAMELEN) != 0 )
+			return -99999;
+#define SQ(x) ((x)*(x))
+		rms += SQ(p1->in_dist - p2->in_dist) + SQ(p1->out_dist - p2->out_dist);
+
+		p1 = p1->next;
+		p2 = p2->next;
+	}
+	if(p1||p2)
+		return -1;
+	return sqrt(rms);
+}
+
 /*
  * TODO:
  *	* pass in "accuracy" rays and pass back the results.
@@ -76,21 +98,18 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 	/* XXX: if locking, we can unlock here */
 
 	/* build the views with pre-defined rays, yo */
-	for(j=0;j<NUMVIEWS;++j)
-		/* set up an othographic grid */
-		for(i=0;i<NUMRAYS;++i) {
-			VMOVE(ray[j*NUMRAYS+i].r_dir, dir[j]);	/* direction is defined */
-			VSET(ray[j*NUMRAYS+i].r_pt, 0, 0, -radius);
-		}
-
-/* shoot the accuracy rays */
 	for(j=0;j<NUMVIEWS;++j) {
-		struct xray ray;
-		VMOVE(ray.r_dir,dir[j]);
-		VJOIN1(ray.r_pt,bb[2],-radius,dir[j]);
-		r->p[j] = shoot(inst,&ray);
+		VMOVE(ray->r_dir,dir[j]);
+		VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
+
+		r->p[j] = shoot(inst,ray);	/* shoot the accuracy ray while we're here */
+		/* set up an othographic grid */
+		vect_t avec,bvec;
+		bn_vec_ortho( avec, ray->r_dir );
+		VCROSS( bvec, ray->r_dir, avec );
+		VUNITIZE( bvec );
+		rt_raybundle_maker(ray+j*NUMRAYS,radius,avec,bvec,100,NUMRAYS/100);
 	}
-/* end accuracy ray shooting */
 
 /* performance run */
 	gettimeofday(&start,NULL); cstart = clock();
