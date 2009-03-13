@@ -8,7 +8,6 @@
 #include <string.h>
 #include <math.h>
 
-#include <brlcad/machine.h>
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
