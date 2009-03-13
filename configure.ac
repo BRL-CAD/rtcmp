@@ -49,7 +49,7 @@ LIBS="$LIBS $TIELIBS -lm"
 AC_MSG_CHECKING(checking for libtie)
 AC_TRY_LINK([
 	#include "tie/tie.h"
-	#include "tie/define.h"
+	#include "tie/tie_define.h"
 	],[tie_prep((tie_t *)(0));],
 	AC_MSG_RESULT(yes); AC_DEFINE(HAVE_TIE,1,"Use libtie/adrt"),
 	AC_MSG_RESULT(no); LIBS="$SAVED_LIBS")
