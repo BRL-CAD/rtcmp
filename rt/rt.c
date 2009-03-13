@@ -29,12 +29,17 @@ static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
 	/* (set! a->a_uptr (map translate p)) */
-	struct part *f, *c, *l;	/* first, current, last */l = c;
+	struct part *f, *c, *l;	/* first, current, last */
 	struct partition *pp;
 	f = c = l = NULL;
 	s = NULL;
 
+	/* walk the partition list */
 	for (pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
+
+		/* get a fresh part cell from the memory manager. Append it to
+		 * the end of the list.
+		 * (would it be better to wrap this, or do cons style?) */
 		if(f==NULL)
 			f = c = l = get_part();
 		else {
@@ -42,15 +47,20 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 			l = c;
 		}
 		c->next = NULL;
+
+		/* generate the in/out normals */
+		RT_HIT_NORM(pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray);
+		RT_HIT_NORM(pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray);
+
+		/* copy the useful factors */
 		c->in_dist = pp->pt_inhit->hit_dist;
 		c->out_dist = pp->pt_outhit->hit_dist;
 		strncpy(c->region, pp->pt_regionp->reg_name, NAMELEN-1);
-		RT_HIT_NORM(pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray);
-		RT_HIT_NORM(pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray);
 		VMOVE(c->in, pp->pt_inhit->hit_point);
 		VMOVE(c->out, pp->pt_outhit->hit_point);
 		VMOVE(c->innorm, pp->pt_inhit->hit_normal);
 		VMOVE(c->outnorm, pp->pt_outhit->hit_normal);
+		/* and compute the hit depth */
 		c->depth = c->out_dist - c->in_dist;
 	}
 	a->a_uptr = (genptr_t)f;
@@ -102,19 +112,20 @@ rt_constructor(char *file, int numreg, char **regs)
 	}
 
 	a = (struct application *) bu_malloc(sizeof(struct application), "RT application");
-	RT_APPLICATION_INIT(a);
-	a->a_magic = RT_AP_MAGIC;	/* just in case we want to throw
-					 * debugging on */
+	RT_APPLICATION_INIT(a);	/* just does a memset to 0 and then sets the magic */
 
+	/* assign the callback functions */
 	a->a_logoverlap = rt_silent_logoverlap;
 	a->a_hit = hit;
 	a->a_miss = miss;
+
 	a->a_rt_i = rt_dirbuild(file, descr, 0);	/* attach the db file */
 	if (a->a_rt_i == NULL) {
 		fprintf(stderr, "RT: Failed to load database: %s\n", file);
 		bu_free(a, "RT application");
 		return NULL;
 	}
+
 	while (numreg--)
 		rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
 	rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
