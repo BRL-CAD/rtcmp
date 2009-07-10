@@ -317,7 +317,7 @@ tri_load(const char *filename, int numreg, const char **regs)
 			&tree_state, 	/* initial tree state */
 			NULL,		/* region start function */
 			region_end,	/* region end function */
-			nmg_booltree_leaf_tess,	/* leave function */
+			nmg_booltree_leaf_tess,	/* leaf function */
 			NULL);		/* client data */
 	savecache(cachename, GLOBAL_trireg);
 	return GLOBAL_trireg;
