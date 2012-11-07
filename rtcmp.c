@@ -132,17 +132,22 @@ main(int argc, char **argv)
 #endif
 #undef TRY
 
-	for(c=0;c<NUMVIEWS;++c) { 
-		double rms;
-		printf("Shot %d ", c+1);
-		rms = cmppartl(rt_retpack->p[c], adrt_retpack->p[c]);
-		if(rms < 0.0) {
-			printf("- region list differs!!!\n");
-			printf("LRT:  "); showpart(rt_retpack->p[c]); printf("\n");
-			printf("ADRT: "); showpart(adrt_retpack->p[c]); printf("\n");
-		} else
-			printf("deviation: %f mm RMS\n", c, rms);
-	}
+	if((mode & ADRT) && (mode & BRLCAD))
+		for(c=0;c<NUMVIEWS;++c) { 
+			double rms;
+			printf("Shot %d ", c+1);
+			if( !rt_retpack && !adrt_retpack ) {
+				printf("%s retpack missing!\n", !rt_retpack?"rt_retpack":"adrt_retpack");
+				exit(-1);
+			}
+			rms = cmppartl(rt_retpack->p[c], adrt_retpack->p[c]);
+			if(rms < 0.0) {
+				printf("- region list differs!!!\n");
+				printf("LRT:  "); showpart(rt_retpack->p[c]); printf("\n");
+				printf("ADRT: "); showpart(adrt_retpack->p[c]); printf("\n");
+			} else
+				printf("deviation: %f mm RMS\n", c, rms);
+		}
 	
 #define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMTRAYS/prefix##_retpack->t, (double)NUMTRAYS/prefix##_retpack->c)
 	SHOW(dry);
