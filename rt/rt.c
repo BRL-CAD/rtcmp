@@ -49,8 +49,8 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 		c->next = NULL;
 
 		/* generate the in/out normals */
-		RT_HIT_NORM(pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray);
-		RT_HIT_NORM(pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray);
+		RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray, 0);
+		RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
 
 		/* copy the useful factors */
 		c->in_dist = pp->pt_inhit->hit_dist;

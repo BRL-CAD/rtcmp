@@ -40,7 +40,7 @@ AC_ARG_WITH(brlcad,
 CFLAGS="$CFLAGS $BRLCAD_CFLAGS"
 LDFLAGS="$LDFLAGS $BRLCAD_LDFLAGS $LIBTHREAD"
 LIBS="$LIBS -lbu -lbn -lrt"
-AC_CHECK_LIB(rt, rt_prep,,AC_ERROR(Need BRL-CAD),[${LIBTHREAD} -lm -lbu -lbn -ltcl8.5])
+AC_CHECK_LIB(rt, rt_prep,,AC_ERROR(Need BRL-CAD),[${LIBTHREAD} -lm -lbu -lbn -ltcl])
 
 # Look for libtie/adrt
 SAVED_LIBS="$LIBS"

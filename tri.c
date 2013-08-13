@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -107,7 +108,7 @@ savecache(char *filename, struct tri_region_s *regs)
 }
 
 static union tree *
-region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *curtree, genptr_t client_data)
+region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tree *curtree, genptr_t client_data)
 {
 	union tree *ret_tree;
         struct shell *s;
@@ -141,7 +142,7 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 		*tsp->ts_m = nmg_mm();
 		db_free_tree(curtree, &rt_uniresource);		/* Does an nmg_kr() */
 
-		BU_GETUNION(curtree, tree);
+		BU_GET(curtree, union tree);
 		curtree->magic = RT_TREE_MAGIC;
 		curtree->tr_op = OP_NOP;
 		return curtree;
@@ -175,7 +176,7 @@ region_end(struct db_tree_state *tsp, struct db_full_path *pathp, union tree *cu
 		*tsp->ts_m = nmg_mm();
 		db_free_tree(curtree, &rt_uniresource);		/* Does an nmg_kr() */
 
-		BU_GETUNION(curtree, tree);
+		BU_GET(curtree, union tree);
 		curtree->magic = RT_TREE_MAGIC;
 		curtree->tr_op = OP_NOP;
 		return curtree;
