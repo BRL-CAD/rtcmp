@@ -11,6 +11,7 @@
 #include <common.h>
 
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #ifdef HAVE_STRING_H
@@ -25,14 +26,12 @@
 
 #include "tri.h"
 
-#include <tie/tie_struct.h>
-#include <tie/tie_define.h>
-#include <tie/tie.h>
+#include <brlcad/tie.h>
 
 #include "adrt.h"
 
 /* no magic to doublecheck... */
-#define RESOLVE(x) tie_t *t = (tie_t *)(x)
+#define RESOLVE(x) struct tie_s *t = (struct tie_s *)(x)
 
 
 
@@ -43,7 +42,7 @@
  * intersection
  */
 static void *
-hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
+hitfunc(struct tie_ray_s *ray, struct tie_id_s *id, struct tie_tri_s *trie, void *ptr)
 {
 	/* Ugh. Three possible conditions
 	 *  1) p and pl are NULL (first hit this shot
@@ -55,8 +54,8 @@ hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 	 */
 	struct part **p = (struct part **)ptr;
 	if((*p) && (*p)->depth < 0.0) {
-		VMOVE((*p)->out, id->pos.v);
-		VMOVE((*p)->outnorm, id->norm.v);
+		VMOVE((*p)->out, id->pos);
+		VMOVE((*p)->outnorm, id->norm);
 		(*p)->out_dist = id->dist;
 		(*p)->depth = id->dist - (*p)->in_dist;
 	} else {
@@ -68,8 +67,8 @@ hitfunc(tie_ray_t *ray, tie_id_t *id, tie_tri_t *trie, void *ptr)
 		}
 		strncpy((*p)->region,(char *)trie->ptr,NAMELEN-1);	/* may be a big cost? punt in dry hopefully fixes this */
 		(*p)->depth = -1.0;	/* signal for the next hit to be out */
-		VMOVE((*p)->in, id->pos.v);
-		VMOVE((*p)->innorm, id->norm.v);
+		VMOVE((*p)->in, id->pos);
+		VMOVE((*p)->innorm, id->norm);
 		(*p)->in_dist = id->dist;
 	}
 	return NULL;
@@ -83,12 +82,12 @@ struct part    *
 adrt_shoot(void *geom, struct xray * ray)
 {
 	RESOLVE(geom);
-	tie_ray_t r;
-	tie_id_t id;
+	struct tie_ray_s r;
+	struct tie_id_s id;
 	struct part *p[2];
 
-	VMOVE(r.pos.v,ray->r_pt);
-	VMOVE(r.dir.v,ray->r_dir);
+	VMOVE(r.pos,ray->r_pt);
+	VMOVE(r.dir,ray->r_dir);
 	r.depth = 0;
 	p[0] = p[1] = NULL;
 
@@ -112,7 +111,7 @@ adrt_getsize(void *g)
 	RESOLVE(g);
 #define SQ(x) ((x)*(x))			/* square */
 #define GTR(a,b) (a)>(b)?(a):(b)	/* the greater of two values */
-#define F(f,i) fabs(t->f.v[i])		/* non-hygenic expansion. */
+#define F(f,i) fabs(t->f[i])		/* non-hygenic expansion. */
 #define S(i) SQ(GTR(F(max,i),F(min,i)))	/* distance to the further plane of axis i, or something. */
 	/* given that we know the scalar distance to the further of each plane
 	 * pair, this should yeild the scalar distance to the intersection
@@ -128,8 +127,8 @@ int
 adrt_getbox(void *g, point_t * min, point_t * max)
 {
 	RESOLVE(g);
-	VMOVE(*min, t->min.v);
-	VMOVE(*max, t->max.v);
+	VMOVE(*min, t->min);
+	VMOVE(*max, t->max);
 	return 1;
 }
 
@@ -137,11 +136,11 @@ void           *
 adrt_constructor(const char *file, int numreg, const char **regs)
 {
 	
-	tie_t *te;
+	struct tie_s *te;
 	TIE_3 t[3];
 	struct tri_region_s *reg;
 
-	te = (tie_t *)bu_malloc(sizeof(tie_t),"TIE constructor");
+	te = (struct tie_s *)bu_malloc(sizeof(struct tie_s),"TIE constructor");
 	tie_init(te,0, TIE_KDTREE_FAST);	/* prep memory */
 	reg = tri_load(file,numreg,regs);
 	while(reg) {

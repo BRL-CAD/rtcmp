@@ -44,14 +44,13 @@ AC_CHECK_LIB(rt, rt_prep,,AC_ERROR(Need BRL-CAD),[${LIBTHREAD} -lm -lbu -lbn -lt
 
 # Look for libtie/adrt
 SAVED_LIBS="$LIBS"
-TIELIBS="$BRLCAD_PATH/lib/libtie.a $BRLCAD_PATH/lib/libtienet.a"
+TIELIBS="$BRLCAD_PATH/lib/librt.a"
 LIBS="$LIBS $TIELIBS -lm"
-AC_MSG_CHECKING(checking for libtie)
+AC_MSG_CHECKING(checking for TIE in librt)
 AC_TRY_LINK([
-	#include "tie/tie.h"
-	#include "tie/tie_define.h"
-	],[tie_prep((tie_t *)(0));],
-	AC_MSG_RESULT(yes); AC_DEFINE(HAVE_TIE,1,"Use libtie/adrt"),
+	#include "brlcad/tie.h"
+	],[tie_prep0((struct tie_s *)(0));],
+	AC_MSG_RESULT(yes); AC_DEFINE(HAVE_TIE,1,"Use TIE/ADRT"),
 	AC_MSG_RESULT(no); LIBS="$SAVED_LIBS")
 
 AC_CONFIG_FILES([Makefile])
