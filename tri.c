@@ -41,7 +41,7 @@ static int
 havecache(char *filename) 
 {
 	struct stat sb;
-	return stat(filename,&sb) == 0 && sb.st_mode&S_IFREG && sb.st_size>0;
+	return stat(filename,&sb) == 0 && S_ISREG(sb.st_mode) && sb.st_size>0;
 }
 
 static struct tri_region_s *

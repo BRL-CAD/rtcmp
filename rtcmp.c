@@ -146,7 +146,7 @@ main(int argc, char **argv)
 				printf("LRT:  "); showpart(rt_retpack->p[c]); printf("\n");
 				printf("ADRT: "); showpart(adrt_retpack->p[c]); printf("\n");
 			} else
-				printf("deviation: %f mm RMS\n", c, rms);
+				printf("deviation[%d]: %f mm RMS\n", c, rms);
 		}
 	
 #define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMTRAYS/prefix##_retpack->t, (double)NUMTRAYS/prefix##_retpack->c)

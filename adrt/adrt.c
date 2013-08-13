@@ -42,7 +42,7 @@
  * intersection
  */
 static void *
-hitfunc(struct tie_ray_s *ray, struct tie_id_s *id, struct tie_tri_s *trie, void *ptr)
+hitfunc(struct tie_ray_s *UNUSED(ray), struct tie_id_s *id, struct tie_tri_s *trie, void *ptr)
 {
 	/* Ugh. Three possible conditions
 	 *  1) p and pl are NULL (first hit this shot
@@ -92,7 +92,7 @@ adrt_shoot(void *geom, struct xray * ray)
 	p[0] = p[1] = NULL;
 
 	/* multithread this for parallel */
-	tie_work(t, &r, &id, hitfunc, (void *)p);
+	tie_work0(t, &r, &id, hitfunc, (void *)p);
 
 	return p[1];
 }
@@ -137,18 +137,17 @@ adrt_constructor(const char *file, int numreg, const char **regs)
 {
 	
 	struct tie_s *te;
-	TIE_3 t[3];
 	struct tri_region_s *reg;
 
 	te = (struct tie_s *)bu_malloc(sizeof(struct tie_s),"TIE constructor");
-	tie_init(te,0, TIE_KDTREE_FAST);	/* prep memory */
+	tie_init0(te,0, TIE_KDTREE_FAST);	/* prep memory */
 	reg = tri_load(file,numreg,regs);
 	while(reg) {
 		int i;
 		float *buf;
 		buf = (float *)bu_malloc(sizeof(float) * 3 * 3 * reg->ntri, "buf");
 		for(i=0;i< 3 * 3 * reg->ntri; ++i) buf[i] = (float)(reg->t[i]);
-		tie_push(te,(TIE_3 **)&buf,reg->ntri,reg->name,0);
+		tie_push0(te,(TIE_3 **)&buf,reg->ntri,reg->name,0);
 		reg = reg->next;
 	}
 	tie_prep(te);	/* generate the K-D tree */
@@ -159,7 +158,7 @@ int
 adrt_destructor(void *g)
 {
 	RESOLVE(g);
-	tie_free(t);
+	tie_free0(t);
 	bu_free(t,"TIE destructor");
 	return 0;
 }

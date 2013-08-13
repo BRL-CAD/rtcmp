@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -99,12 +100,14 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 
 	/* build the views with pre-defined rays, yo */
 	for(j=0;j<NUMVIEWS;++j) {
+		vect_t avec,bvec;
+
 		VMOVE(ray->r_dir,dir[j]);
 		VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
 
 		r->p[j] = shoot(inst,ray);	/* shoot the accuracy ray while we're here */
+
 		/* set up an othographic grid */
-		vect_t avec,bvec;
 		bn_vec_ortho( avec, ray->r_dir );
 		VCROSS( bvec, ray->r_dir, avec );
 		VUNITIZE( bvec );

@@ -2,23 +2,25 @@
  * $Id$
  */
 
+#include <brlcad/common.h>
+
 #include "rtcmp.h"		/* drags in brlcad vmath stuff, too */
 #include "rayforce.h"
 
 struct part    *
-rayforce_shoot(void *geom, struct xray * ray)
+rayforce_shoot(void *UNUSED(geom), struct xray *UNUSED(ray))
 {
 	return NULL;
 }
 
 double 
-rayforce_getsize(void *geom)
+rayforce_getsize(void *UNUSED(geom))
 {
 	return 0.0;
 }
 
 int 
-rayforce_getbox(void *geom, point_t * min, point_t * max)
+rayforce_getbox(void *UNUSED(geom), point_t *UNUSED(min), point_t *UNUSED(max))
 {
 	return 0.0;
 }
@@ -30,7 +32,7 @@ rayforce_constructor()
 }
 
 int 
-rayforce_destructor(void *i)
+rayforce_destructor(void *UNUSED(i))
 {
 	return 0;
 }
