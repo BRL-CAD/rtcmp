@@ -62,7 +62,7 @@ readregion(int fd)
 	r->t = (fastf_t *)malloc(TRISIZE * r->ntri);
 	buf = (fastf_t *)malloc(TRISIZE * r->ntri);
 	read(fd,buf,TRISIZE * r->ntri);
-	ntohd((unsigned char *)r->t, (unsigned char *)buf, 9*r->ntri);
+	bu_cv_ntohd((unsigned char *)r->t, (unsigned char *)buf, 9*r->ntri);
 	free(buf);
 	return r;
 }
@@ -98,7 +98,7 @@ savecache(char *filename, struct tri_region_s *regs)
 		len = htonl(regs->ntri);
 		write(fd,&len,sizeof(long));
 		buf = (fastf_t *)malloc(TRISIZE * regs->ntri);
-		htond((unsigned char *)buf,(unsigned char *)regs->t, FLTPERTRI * regs->ntri);
+		bu_cv_htond((unsigned char *)buf,(unsigned char *)regs->t, FLTPERTRI * regs->ntri);
 		write(fd,buf,TRISIZE*regs->ntri);
 		free(buf);
 		regs = regs->next;

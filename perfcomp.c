@@ -83,7 +83,7 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 	if(r == NULL) return NULL;
 
 	p = (struct part **)bu_malloc(sizeof(struct part *)*NUMTRAYS, "allocating partition space");
-	ray = (struct xray *)bu_malloc(sizeof(struct xray)*NUMTRAYS, "allocating ray space");
+	ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
 
 	inst = constructor(*argv, argc-1, argv+1);
 	if(inst == NULL) { free(r); return NULL; }
