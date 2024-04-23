@@ -19,7 +19,7 @@
  */
 /** @file dry.c
  *
- * Brief description
+ * "Functions for the "dry run" rtcmp methodology
  *
  */
 

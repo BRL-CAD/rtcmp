@@ -19,8 +19,12 @@
  */
 /** @file dry.h
  *
- * Brief description
- *
+ * The "dry" raytrace method does not calculate any geometry intersections.
+ * Rather, it provides an "upper bound" to characterize overhead introduced by
+ * logic other than the actual intersection calculations.  In effect, it
+ * simulates the numbers one would expect with an infinitely fast raytracer -
+ * all *real* timings should be slower than a dry run, modulo resource
+ * starvation or other operating system related testing interference.
  */
 
 #ifndef _DRY_H
