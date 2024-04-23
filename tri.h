@@ -26,11 +26,13 @@
 #ifndef TRI_H
 #define TRI_H
 
+#include <brlcad/vmath.h>
+
 struct tri_region_s {
     int magic;
     struct tri_region_s *next;	/* singly linked list */
     char *name;
-    int ntri;
+    long ntri;
     fastf_t *t;
 };
 
