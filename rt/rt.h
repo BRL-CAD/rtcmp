@@ -19,7 +19,7 @@
  */
 /** @file rt.h
  *
- * Brief description
+ * The "standard" librt geometry/ray intersection engine.
  *
  */
 
