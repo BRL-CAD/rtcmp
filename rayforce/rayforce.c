@@ -31,31 +31,31 @@
 struct part    *
 rayforce_shoot(void *UNUSED(geom), struct xray *UNUSED(ray))
 {
-	return NULL;
+    return NULL;
 }
 
-double 
+double
 rayforce_getsize(void *UNUSED(geom))
 {
-	return 0.0;
+    return 0.0;
 }
 
-int 
+int
 rayforce_getbox(void *UNUSED(geom), point_t *UNUSED(min), point_t *UNUSED(max))
 {
-	return 0.0;
+    return 0.0;
 }
 
 void           *
 rayforce_constructor()
 {
-	return NULL;
+    return NULL;
 }
 
-int 
+int
 rayforce_destructor(void *UNUSED(i))
 {
-	return 0;
+    return 0;
 }
 
 /*

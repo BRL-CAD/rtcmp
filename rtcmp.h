@@ -52,17 +52,17 @@
 
 /* local form of partition list */
 struct part {
-	struct part *next;	/* singly linked list */
-	char region[NAMELEN];	/* human readable region name */
-	double in_dist;
-	point_t in;
-	vect_t innorm;
-	double out_dist;
-	point_t out;
-	vect_t outnorm;
-	double depth;
-	float obliquity;	/* unused */
-	float curvature;	/* unused */
+    struct part *next;	/* singly linked list */
+    char region[NAMELEN];	/* human readable region name */
+    double in_dist;
+    point_t in;
+    vect_t innorm;
+    double out_dist;
+    point_t out;
+    vect_t outnorm;
+    double depth;
+    float obliquity;	/* unused */
+    float curvature;	/* unused */
 };
 
 struct part *get_part();		/* 'allocate' a part */
@@ -74,9 +74,9 @@ void showpart(struct part *p);
 double cmppartl(struct part *p1, struct part *p2);
 
 struct retpack_s {
-	double t;			/* wall time */
-	double c;			/* cpu clock time */
-	struct part *p[NUMVIEWS];	/* ordered set of accuracy partition lists */
+    double t;			/* wall time */
+    double c;			/* cpu clock time */
+    struct part *p[NUMVIEWS];	/* ordered set of accuracy partition lists */
 };
 
 #endif

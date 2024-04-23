@@ -47,35 +47,35 @@ static void **slabs = NULL;
 static struct part *free_list = NULL;
 static int nfree = 0;
 
-/* 
+/*
  * slab allocator. Automatically called when the free list is empty, but can be
  * called any old time.
  */
-static int alloc_part(int count) 
+static int alloc_part(int count)
 {
-	struct part *n, *t;
-	static int lastcount = -1;
+    struct part *n, *t;
+    static int lastcount = -1;
 
-	if(count == -1) count = lastcount==-1?DEFAULT_ALLOC_SIZE:lastcount;
-	else lastcount = count;
+    if(count == -1) count = lastcount==-1?DEFAULT_ALLOC_SIZE:lastcount;
+    else lastcount = count;
 
-	nfree += count;
+    nfree += count;
 
-	/* "pages" */
-	nslabs ++;
-	slabs = realloc(slabs, sizeof(void *) * nslabs);	
+    /* "pages" */
+    nslabs ++;
+    slabs = realloc(slabs, sizeof(void *) * nslabs);
 
-	/* initialize cells in the page */
-	t = n = (void *)malloc(sizeof(struct part)*count);
-	while(--count) {
-		t->next = t+1;
-		t = t->next;
-	}
+    /* initialize cells in the page */
+    t = n = (void *)malloc(sizeof(struct part)*count);
+    while(--count) {
+	t->next = t+1;
+	t = t->next;
+    }
 
-	/* attach it to the existing free list */
-	t->next = free_list;
-	free_list = n;
-	return 0;
+    /* attach it to the existing free list */
+    t->next = free_list;
+    free_list = n;
+    return 0;
 }
 
 
@@ -85,45 +85,45 @@ static int alloc_part(int count)
 /* 'allocate' a part */
 struct part *get_part()
 {
-	struct part *n;
-	if(free_list == NULL) 
-		alloc_part(-1);
-	n = free_list;
-	free_list = free_list->next;
-	n->next = NULL;
-	return n;
+    struct part *n;
+    if(free_list == NULL)
+	alloc_part(-1);
+    n = free_list;
+    free_list = free_list->next;
+    n->next = NULL;
+    return n;
 }
-		
+
 /* 'free' part, puts back in memory pool */
 int free_part (struct part *p)
 {
-	p->next = free_list;
-	free_list = p;
-	return 0;
+    p->next = free_list;
+    free_list = p;
+    return 0;
 }
-		
+
 /* recursive free (follows list) */
 int free_part_r (struct part *p)
 {
-	struct part *tmp;
+    struct part *tmp;
 
-	while(p) {
-		tmp = p;
-		p = p->next;
-		free_part(tmp);
-	}
-	return 0;
+    while(p) {
+	tmp = p;
+	p = p->next;
+	free_part(tmp);
+    }
+    return 0;
 }
-	
+
 /* clean up part memory manager */
 int end_part()
 {
-	while(nslabs)
-		free(slabs[--nslabs]);
-	free(slabs);
-	slabs = NULL;
-	nslabs = 0;
-	return 0;
+    while(nslabs)
+	free(slabs[--nslabs]);
+    free(slabs);
+    slabs = NULL;
+    nslabs = 0;
+    return 0;
 }
 
 /*
