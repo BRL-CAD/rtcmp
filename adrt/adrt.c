@@ -27,8 +27,6 @@
 # include "config.h"
 #endif
 
-#ifdef HAVE_TIE
-
 #include <common.h>
 
 #include <stdio.h>
@@ -47,7 +45,7 @@
 
 #include "tri.h"
 
-#include <brlcad/tie.h>
+#include <brlcad/rt/tie.h>
 
 #include "adrt.h"
 
@@ -113,7 +111,7 @@ adrt_shoot(void *geom, struct xray * ray)
     p[0] = p[1] = NULL;
 
     /* multithread this for parallel */
-    tie_work0(t, &r, &id, hitfunc, (void *)p);
+    TIE_WORK(t, &r, &id, hitfunc, (void *)p);
 
     return p[1];
 }
@@ -161,17 +159,17 @@ adrt_constructor(const char *file, int numreg, const char **regs)
     struct tri_region_s *reg;
 
     te = (struct tie_s *)bu_malloc(sizeof(struct tie_s),"TIE constructor");
-    tie_init0(te,0, TIE_KDTREE_FAST);	/* prep memory */
+    TIE_INIT(te,0, TIE_KDTREE_FAST);	/* prep memory */
     reg = tri_load(file,numreg,regs);
     while(reg) {
 	int i;
 	float *buf;
 	buf = (float *)bu_malloc(sizeof(float) * 3 * 3 * reg->ntri, "buf");
 	for(i=0;i< 3 * 3 * reg->ntri; ++i) buf[i] = (float)(reg->t[i]);
-	tie_push0(te,(TIE_3 **)&buf,reg->ntri,reg->name,0);
+	TIE_PUSH(te,(TIE_3 **)&buf,reg->ntri,reg->name,0);
 	reg = reg->next;
     }
-    tie_prep(te);	/* generate the K-D tree */
+    TIE_PREP(te);	/* generate the K-D tree */
     return (void *)te;
 }
 
@@ -179,12 +177,10 @@ int
 adrt_destructor(void *g)
 {
     RESOLVE(g);
-    tie_free0(t);
+    TIE_FREE(t);
     bu_free(t,"TIE destructor");
     return 0;
 }
-
-#endif
 
 /*
  * Local Variables:

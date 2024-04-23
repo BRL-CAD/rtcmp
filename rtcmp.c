@@ -38,9 +38,7 @@
 
 #include "perfcomp.h"
 
-#ifdef HAVE_TIE
-# include "adrt/adrt.h"
-#endif
+#include "adrt/adrt.h"
 
 #ifdef HAVE_RAYFORCE
 # include "rayforce/rayforce.h"
@@ -135,11 +133,7 @@ main(int argc, char **argv)
     TRY(DRY,dry);	/* prime it */
     TRY(BRLCAD,rt);	/* librt is not optional. */
 
-#ifdef HAVE_TIE
     TRY(ADRT,adrt);
-#else
-    if(mode&ADRT) printf("ADRT support not compiled in\n");
-#endif
 
 #ifdef HAVE_RAYFORCE
     TRY(RAYFORCE,rayforce);
