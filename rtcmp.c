@@ -40,10 +40,6 @@
 
 #include "adrt/adrt.h"
 
-#ifdef HAVE_RAYFORCE
-# include "rayforce/rayforce.h"
-#endif
-
 #include "dry/dry.h"
 #include "rt/rt.h"
 
@@ -54,7 +50,6 @@
 #define DISTRIBUTED	0x02
 #define ADRT		0x04
 #define BRLCAD		0x08
-#define RAYFORCE	0x10
 #define DRY		0x20	/* oh the horror */
 
 void
@@ -88,7 +83,7 @@ main(int argc, char **argv)
 {
     int c, mode = DRY, nthreads = 0, nproc = 0;
     char *pname = *argv;
-    struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *adrt_retpack = NULL, *rayforce_retpack = NULL;
+    struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *adrt_retpack = NULL;
 
     while( (c = getopt( argc, argv, "abd:hp:rsv")) != -1 ){
 	switch(c)
@@ -103,7 +98,6 @@ main(int argc, char **argv)
 	    case 'd': mode |= DISTRIBUTED; if(optarg)nproc=atoi(optarg); break;
 	    case 'a': mode |= ADRT; break;
 	    case 'b': mode |= BRLCAD; break;
-	    case 'r': mode |= RAYFORCE; break;
 	    case 'h': dohelp(pname); return EXIT_SUCCESS;
 	    case 'v': doversion(pname); return EXIT_SUCCESS;
 	    case '?':
@@ -122,7 +116,7 @@ main(int argc, char **argv)
 
     if(mode&DISTRIBUTED) { printf("Uh, no distributed yet\n"); return EXIT_FAILURE; }
 
-    if(!(mode&(BRLCAD|ADRT|RAYFORCE))) {
+    if(!(mode&(BRLCAD|ADRT))) {
 	printf("Must select at least one raytracing engine to use\n");
 	dohelp(pname);
 	return EXIT_FAILURE;
@@ -135,11 +129,6 @@ main(int argc, char **argv)
 
     TRY(ADRT,adrt);
 
-#ifdef HAVE_RAYFORCE
-    TRY(RAYFORCE,rayforce);
-#else
-    if(mode&RAYFORCE) printf("RAYFORCE support not compiled in\n");
-#endif
 #undef TRY
 
     if((mode & ADRT) && (mode & BRLCAD))
@@ -153,8 +142,8 @@ main(int argc, char **argv)
 	    rms = cmppartl(rt_retpack->p[c], adrt_retpack->p[c]);
 	    if(rms < 0.0) {
 		printf("- region list differs!!!\n");
-		printf("LRT:  "); showpart(rt_retpack->p[c]); printf("\n");
-		printf("ADRT: "); showpart(adrt_retpack->p[c]); printf("\n");
+		printf("LIBRT: "); showpart(rt_retpack->p[c]); printf("\n");
+		printf("ADRT:  "); showpart(adrt_retpack->p[c]); printf("\n");
 	    } else
 		printf("deviation[%d]: %f mm RMS\n", c, rms);
 	}
@@ -163,14 +152,11 @@ main(int argc, char **argv)
     SHOW(dry);
     SHOW(rt);
     SHOW(adrt);
-    SHOW(rayforce);
 #undef SHOW
 
     printf("\n");
 #define SPEEDUP(a,b) if(a##_retpack && b##_retpack) printf(#b" shows %.3f times speedup over "#a"\n", (a##_retpack->c-dry_retpack->c) / (b##_retpack->c-dry_retpack->c) - 1);
     SPEEDUP(rt,adrt);
-    SPEEDUP(rt,rayforce);
-    SPEEDUP(adrt,rayforce);
 #undef SPEEDUP
 
     return EXIT_SUCCESS;
