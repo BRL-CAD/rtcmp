@@ -1,5 +1,29 @@
+/*                         P A R T M . C
+ * RtCmp
+ *
+ * Copyright (c) 2007-2024 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file partm.c
+ *
+ * Brief description
+ *
+ */
 
-/*
+/** @file partm.c
  * Basic memory manager, to avoid malloc() thrashing. Most of a functional
  * garbage collector at this point, with slab style OS interface. If someone
  * implemented a collect function, it'd be real, yo. Otherwise, it's just a
@@ -101,3 +125,13 @@ int end_part()
 	nslabs = 0;
 	return 0;
 }
+
+/*
+ * Local Variables:
+ * tab-width: 8
+ * mode: C
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */
