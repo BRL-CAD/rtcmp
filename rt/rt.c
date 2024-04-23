@@ -63,7 +63,7 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 		/* and compute the hit depth */
 		c->depth = c->out_dist - c->in_dist;
 	}
-	a->a_uptr = (genptr_t)f;
+	a->a_uptr = (void *)f;
 	return 0;
 }
 

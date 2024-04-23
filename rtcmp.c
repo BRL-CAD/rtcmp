@@ -46,7 +46,7 @@
 void
 doversion(char *name)
 {
-	printf("%s (%s) - %s (C) 2007 US Army Research Lab - Erik Greenwald <erikg@arl.army.mil>\n", PACKAGE, name, VERSION);
+	printf("rtcmp (1.0) (C) 2007 US Army Research Lab - Erik Greenwald <erikg@arl.army.mil>\n");
 	return;
 }
 void

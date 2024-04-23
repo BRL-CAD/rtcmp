@@ -27,6 +27,7 @@
 
 #include <brlcad/bu.h>
 #include <brlcad/vmath.h>
+#include <brlcad/rt/primitives/nmg.h>
 #include <brlcad/raytrace.h>
 
 #include "tri.h"
@@ -108,7 +109,7 @@ savecache(char *filename, struct tri_region_s *regs)
 }
 
 static union tree *
-region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tree *curtree, genptr_t client_data)
+region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tree *curtree, void *client_data)
 {
 	union tree *ret_tree;
         struct shell *s;
@@ -148,12 +149,12 @@ region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tr
 		return curtree;
 	}
 
-	ret_tree = nmg_booltree_evaluate(curtree, tsp->ts_tol, &rt_uniresource); 
+	ret_tree = rt_booltree_evaluate(curtree, &RTG.rtg_vlfree, tsp->ts_tol, &rt_uniresource, &rt_nmg_do_bool, 0, NULL);
 	BU_UNSETJUMP;		/* Relinquish the protection */
 
-	if(ret_tree == NULL || ret_tree->tr_d.td_r == NULL) { 
-		printf("Empty region\n"); 
-		return NULL; 
+	if(ret_tree == NULL || ret_tree->tr_d.td_r == NULL) {
+		printf("Empty region\n");
+		return NULL;
 	}
 
 	/* some sanity checking... */
@@ -181,7 +182,7 @@ region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tr
 		curtree->tr_op = OP_NOP;
 		return curtree;
 	} 
-	nmg_triangulate_model(ret_tree->tr_d.td_r->m_p, tsp->ts_tol);
+	nmg_triangulate_model(ret_tree->tr_d.td_r->m_p, &RTG.rtg_vlfree, tsp->ts_tol);
 	BU_UNSETJUMP;
 
 	/* extract the path name... we must free this memory! */
@@ -261,7 +262,7 @@ tri_load(const char *filename, int numreg, const char **regs)
 	struct db_i *dbip;
 	struct db_tree_state tree_state;
 
-	struct rt_tess_tol       ttol;
+	struct bg_tess_tol       ttol;
 	struct bn_tol            tol;
 	struct model		*model;
 
@@ -284,7 +285,7 @@ tri_load(const char *filename, int numreg, const char **regs)
 
 	model = nmg_mm();
 
-        ttol.magic = RT_TESS_TOL_MAGIC;
+        ttol.magic = BG_TESS_TOL_MAGIC;
         ttol.abs = 0.0;
         ttol.rel = 0.01;
         ttol.norm = 0.0;
@@ -309,7 +310,7 @@ tri_load(const char *filename, int numreg, const char **regs)
         db_dirbuild(dbip);
 
         BN_CK_TOL(tree_state.ts_tol);
-        RT_CK_TESS_TOL(tree_state.ts_ttol);
+        BG_CK_TESS_TOL(tree_state.ts_ttol);
 
 	db_walk_tree (	dbip,		/* the DB instance ptr */
 			numreg,		/* argc */
@@ -318,7 +319,7 @@ tri_load(const char *filename, int numreg, const char **regs)
 			&tree_state, 	/* initial tree state */
 			NULL,		/* region start function */
 			region_end,	/* region end function */
-			nmg_booltree_leaf_tess,	/* leaf function */
+			rt_booltree_leaf_tess,	/* leaf function */
 			NULL);		/* client data */
 	savecache(cachename, GLOBAL_trireg);
 	return GLOBAL_trireg;
