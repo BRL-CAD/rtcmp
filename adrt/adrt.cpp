@@ -1,4 +1,4 @@
-/*                          A D R T . C
+/*                         A D R T . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file adrt.c
+/** @file adrt.cpp
  *
  * Brief description
  *
@@ -39,20 +39,17 @@
 #  include <strings.h>
 #endif
 
+extern "C" {
 #include <brlcad/bu.h>
 #include <brlcad/vmath.h>
 #include <brlcad/raytrace.h>
-
-#include "tri.h"
-
 #include <brlcad/rt/tie.h>
 
 #include "adrt.h"
+}
+#include "gfile.h"
 
-/* no magic to doublecheck... */
-#define RESOLVE(x) struct tie_s *t = (struct tie_s *)(x)
-
-
+#define RESOLVE(x) GFile *gf = (GFile *)(x)
 
 /*** internal functions, should all be static ***/
 
@@ -97,7 +94,7 @@ hitfunc(struct tie_ray_s *UNUSED(ray), struct tie_id_s *id, struct tie_tri_s *tr
 
 /*** interface functions ***/
 
-struct part    *
+extern "C" struct part    *
 adrt_shoot(void *geom, struct xray * ray)
 {
     RESOLVE(geom);
@@ -111,7 +108,7 @@ adrt_shoot(void *geom, struct xray * ray)
     p[0] = p[1] = NULL;
 
     /* multithread this for parallel */
-    TIE_WORK(t, &r, &id, hitfunc, (void *)p);
+    TIE_WORK(gf->tie, &r, &id, hitfunc, (void *)p);
 
     return p[1];
 }
@@ -124,13 +121,13 @@ adrt_shoot(void *geom, struct xray * ray)
  * from the origin to the furthest corner of the bounding box. At least, that's
  * how I read that pile of steamin{{~[{{{{+++ATH0
  */
-double
+extern "C" double
 adrt_getsize(void *g)
 {
     RESOLVE(g);
 #define SQ(x) ((x)*(x))			/* square */
 #define GTR(a,b) (a)>(b)?(a):(b)	/* the greater of two values */
-#define F(f,i) fabs(t->f[i])		/* non-hygenic expansion. */
+#define F(f,i) fabs(gf->tie->f[i])		/* non-hygenic expansion. */
 #define S(i) SQ(GTR(F(max,i),F(min,i)))	/* distance to the further plane of axis i, or something. */
     /* given that we know the scalar distance to the further of each plane
      * pair, this should yeild the scalar distance to the intersection
@@ -142,52 +139,28 @@ adrt_getsize(void *g)
 #undef S
 }
 
-int
+extern "C" int
 adrt_getbox(void *g, point_t * min, point_t * max)
 {
     RESOLVE(g);
-    VMOVE(*min, t->min);
-    VMOVE(*max, t->max);
+    VMOVE(*min, gf->tie->min);
+    VMOVE(*max, gf->tie->max);
     return 1;
 }
 
-void           *
-adrt_constructor(const char *file, int numreg, const char **regs)
+extern "C" void *
+adrt_constructor(char *file, int numreg, char **regs)
 {
-
-    struct tie_s *te;
-    struct tri_region_s *reg;
-
-    te = (struct tie_s *)bu_malloc(sizeof(struct tie_s),"TIE constructor");
-    TIE_INIT(te,0, TIE_KDTREE_FAST);	/* prep memory */
-    reg = tri_load(file,numreg,regs);
-    while(reg) {
-	int i;
-	float *buf;
-	buf = (float *)bu_malloc(sizeof(float) * 3 * 3 * reg->ntri, "buf");
-	for(i=0;i< 3 * 3 * reg->ntri; ++i) buf[i] = (float)(reg->t[i]);
-	TIE_PUSH(te,(TIE_3 **)&buf,reg->ntri,reg->name,0);
-	reg = reg->next;
-    }
-    TIE_PREP(te);	/* generate the K-D tree */
-    return (void *)te;
+    GFile *g = new GFile;
+    g->load_g(file, numreg, (const char **)regs);
+    return (void *)g;
 }
 
-int
+extern "C" int
 adrt_destructor(void *g)
 {
     RESOLVE(g);
-    TIE_FREE(t);
-    bu_free(t,"TIE destructor");
+    delete gf;
     return 0;
 }
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */

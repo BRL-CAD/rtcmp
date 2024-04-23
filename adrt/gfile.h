@@ -1,7 +1,7 @@
-/*                           T R I . H
- * RtCmp
+/*                       G F I L E . H
+ * BRL-ISST
  *
- * Copyright (c) 2007-2024 United States Government as represented by
+ * Copyright (c) 2014-2024 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,40 +17,46 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file tri.h
+/** @file cadapp.h
  *
- * Brief description
+ *  Manage database objects
  *
  */
 
-#ifndef TRI_H
-#define TRI_H
+#ifndef GFILE_H
+#define GFILE_H
 
-#include <brlcad/vmath.h>
+extern "C" {
+#include "bn/tol.h"
+#include "raytrace.h"
 
-struct tri_region_s {
-    int magic;
-    struct tri_region_s *next;	/* singly linked list */
-    char *name;
-    long ntri;
-    fastf_t *t;
+#include "rt/tie.h"
+#include "adrt.h"
+#include "adrt_struct.h"
+}
+
+class GFile
+{
+    public:
+	int load_g(const char *filename, int argc, const char **argv);
+	void closedb();
+
+	struct tie_s *tie;
+	struct adrt_mesh_s *meshes;
+	struct db_i *dbip;
+	TIE_3 **tribuf;
 };
 
-/*
- * loads a linked list of regions with triangles. Triangles are CCW. Will use a
- * cache if available.
- */
-struct tri_region_s *tri_load(const char *filename, int numreg, const char **regs);
-int close_tris(struct tri_region_s *);
-
-#endif
+#endif // GFILE_H
 
 /*
  * Local Variables:
+ * mode: C++
  * tab-width: 8
- * mode: C
+ * c-basic-offset: 4
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
+

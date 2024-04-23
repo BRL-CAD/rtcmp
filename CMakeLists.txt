@@ -17,24 +17,25 @@ include_directories(
 	)
 
 set(rtcmp_SRCS
-	adrt/adrt.c
+	adrt/adrt.cpp
+	adrt/gfile.cpp
 	dry/dry.c
 	partm.c
 	perfcomp.c
 	rayforce/rayforce.c
 	rt/rt.c
 	rtcmp.c
-	tri.c
 	)
 
 set(rtcmp_HDRS
 	adrt/adrt.h
+	adrt/adrt_struct.h
+	adrt/gfile.h
 	dry/dry.h
 	perfcomp.h
 	rayforce/rayforce.h
 	rt/rt.h
 	rtcmp.h
-	tri.h
 	)
 
 add_executable(rtcmp ${rtcmp_SRCS})
