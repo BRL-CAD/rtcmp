@@ -1,0 +1,19 @@
+Need to consider a different approach to this...
+
+What is prompting us to dust off rtcmp at this time is a need to compare two
+different implementations of BoT raytracing in librt.  It would be a pain to
+try to link two separate sets of BRL-CAD libraries into the same executable (if
+that's even technically possible), so what we probably need to do instead is
+revisit work done with nirt some years back looking at diffing sets of nirt
+outputs.  That's more or less what needs to happen here (although we also need
+timing information in this application).  In the case of the nirt work we made
+a particular effort to be able to support writing out results in a way that
+would also let us read them back in from disk later while preserving the same
+floating point values, so if we apply those techniques here we should be able
+to produce "rtcmp" files that encode the results of individual runs.  We could
+perhaps have an rtcmpgen executable to handle the raytracing invocation and
+output, and rtcmp's job could then be to process two or more of those output
+files and compare them.  We could also leverage more of the nirt lessons and
+produce nirt commands that would allow devs to exactly reproduce shots showing
+differences in the comparisons.
+
