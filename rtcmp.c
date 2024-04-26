@@ -71,7 +71,6 @@ dohelp(char *name)
 	    \n\
 	    \t-a		Use ADRT\n\
 	    \t-b		Use BRL-CAD librt\n\
-	    \t-r		Use Ray-Force\n\
 	    \n\
 	    \t-h		Help\n\
 	    \t-v		Version\n\
