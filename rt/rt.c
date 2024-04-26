@@ -35,16 +35,6 @@
 
 #include "rt/rt.h"
 
-#undef DEBUG
-#ifdef DEBUG
-#warning "DEBUG"
-#define RESOLVE(x) struct application *a; (((struct application *)(x))->a_magic == RT_AP_MAGIC)?(struct application *)(x):PANIC("This is not an RT instance!\n"),NULL
-#else
-#define RESOLVE(x) struct application *a = ((struct application *)(x))
-#endif
-
-#define RTIP a->a_rt_i
-
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
@@ -97,7 +87,7 @@ miss(struct application * a)
 struct part    *
 rt_shoot(void *g, struct xray * ray)
 {
-    RESOLVE(g);
+    struct application *a = (struct application *)g;
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
     rt_shootray(a);		/* call into librt */
@@ -107,16 +97,16 @@ rt_shoot(void *g, struct xray * ray)
 double
 rt_getsize(void *g)
 {
-    RESOLVE(g);
-    return RTIP->rti_radius;
+    struct application *a = (struct application *)g;
+    return a->a_rt_i->rti_radius;
 }
 
 int
 rt_getbox(void *g, point_t * min, point_t * max)
 {
-    RESOLVE(g);
-    VMOVE(*min, RTIP->mdl_min);
-    VMOVE(*max, RTIP->mdl_max);
+    struct application *a = (struct application *)g;
+    VMOVE(*min, a->a_rt_i->mdl_min);
+    VMOVE(*max, a->a_rt_i->mdl_max);
     return 0;
 }
 
@@ -156,7 +146,7 @@ rt_constructor(char *file, int numreg, char **regs)
 int
 rt_destructor(void *g)
 {
-    RESOLVE(g);
+    struct application *a = (struct application *)g;
     rt_free_rti(a->a_rt_i);
     free(a);
     return 0;

@@ -49,8 +49,6 @@ extern "C" {
 }
 #include "gfile.h"
 
-#define RESOLVE(x) GFile *gf = (GFile *)(x)
-
 /*** internal functions, should all be static ***/
 
 /*
@@ -97,7 +95,7 @@ hitfunc(struct tie_ray_s *UNUSED(ray), struct tie_id_s *id, struct tie_tri_s *tr
 extern "C" struct part    *
 adrt_shoot(void *geom, struct xray * ray)
 {
-    RESOLVE(geom);
+    GFile *gf = (GFile *)geom;
     struct tie_ray_s r;
     struct tie_id_s id;
     struct part *p[2];
@@ -124,7 +122,7 @@ adrt_shoot(void *geom, struct xray * ray)
 extern "C" double
 adrt_getsize(void *g)
 {
-    RESOLVE(g);
+    GFile *gf = (GFile *)g;
 #define SQ(x) ((x)*(x))			/* square */
 #define GTR(a,b) (a)>(b)?(a):(b)	/* the greater of two values */
 #define F(f,i) fabs(gf->tie->f[i])		/* non-hygenic expansion. */
@@ -142,7 +140,7 @@ adrt_getsize(void *g)
 extern "C" int
 adrt_getbox(void *g, point_t * min, point_t * max)
 {
-    RESOLVE(g);
+    GFile *gf = (GFile *)g;
     VMOVE(*min, gf->tie->min);
     VMOVE(*max, gf->tie->max);
     return 1;
@@ -159,8 +157,17 @@ adrt_constructor(char *file, int numreg, char **regs)
 extern "C" int
 adrt_destructor(void *g)
 {
-    RESOLVE(g);
+    GFile *gf = (GFile *)g;
     delete gf;
     return 0;
 }
 
+
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8

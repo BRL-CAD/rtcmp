@@ -29,9 +29,6 @@
 
 #include "dry/dry.h"
 
-struct part    *
-dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
-{
 #define SET(x)  \
     p[x] = get_part(); \
     strncpy(p[x]->region,"/some/nifty/little/part.r",NAMELEN); \
@@ -41,8 +38,11 @@ dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
     VSET(p[x]->outnorm,0,0,0); \
     p[x]->in_dist = 0; \
     p[x]->out_dist = 0;
-    struct part *p[4];
 
+struct part    *
+dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
+{
+    struct part *p[4];
     SET(0);
     SET(1);
     SET(2);
