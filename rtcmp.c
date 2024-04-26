@@ -38,7 +38,7 @@
 
 #include "perfcomp.h"
 
-#include "adrt/adrt.h"
+#include "tie/tie.h"
 
 #include "dry/dry.h"
 #include "rt/rt.h"
@@ -69,7 +69,7 @@ dohelp(char *name)
 	    \t-p<threads>	Parallel mode (threaded)\n\
 	    \t-d<procs>	Distributed mode (not implemented)\n\
 	    \n\
-	    \t-a		Use ADRT\n\
+	    \t-a		Use TIE\n\
 	    \t-b		Use BRL-CAD librt\n\
 	    \n\
 	    \t-h		Help\n\
@@ -82,7 +82,7 @@ main(int argc, char **argv)
 {
     int c, mode = DRY, nthreads = 0, nproc = 0;
     char *pname = *argv;
-    struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *adrt_retpack = NULL;
+    struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *tie_retpack = NULL;
 
     while( (c = getopt( argc, argv, "abd:hp:rsv")) != -1 ){
 	switch(c)
@@ -133,22 +133,22 @@ main(int argc, char **argv)
 
     /* ADRT */
     if (mode & ADRT) {
-	adrt_retpack = perfcomp("adrt", argc, argv, nthreads, nproc, adrt_constructor, adrt_getbox, adrt_getsize, adrt_shoot, adrt_destructor);
+	tie_retpack = perfcomp("adrt", argc, argv, nthreads, nproc, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
     }
 
     if((mode & ADRT) && (mode & BRLCAD)) {
 	for(c=0;c<NUMVIEWS;++c) {
 	    double rms;
 	    printf("Shot %d ", c+1);
-	    if( !rt_retpack && !adrt_retpack ) {
-		printf("%s retpack missing!\n", !rt_retpack?"rt_retpack":"adrt_retpack");
+	    if( !rt_retpack && !tie_retpack ) {
+		printf("%s retpack missing!\n", !rt_retpack?"rt_retpack":"tie_retpack");
 		exit(-1);
 	    }
-	    rms = cmppartl(rt_retpack->p[c], adrt_retpack->p[c]);
+	    rms = cmppartl(rt_retpack->p[c], tie_retpack->p[c]);
 	    if(rms < 0.0) {
 		printf("- region list differs!!!\n");
 		printf("LIBRT: "); showpart(rt_retpack->p[c]); printf("\n");
-		printf("ADRT:  "); showpart(adrt_retpack->p[c]); printf("\n");
+		printf("ADRT:  "); showpart(tie_retpack->p[c]); printf("\n");
 	    } else
 		printf("deviation[%d]: %f mm RMS\n", c, rms);
 	}
@@ -160,13 +160,13 @@ main(int argc, char **argv)
     if (rt_retpack)
 	printf("rt\t: %f seconds (%f cpu) %f wrps  %f crps\n", rt_retpack->t, rt_retpack->c, (double)NUMTRAYS/rt_retpack->t, (double)NUMTRAYS/rt_retpack->c);
 
-    if (adrt_retpack)
-	printf("adrt\t: %f seconds (%f cpu) %f wrps  %f crps\n", adrt_retpack->t, adrt_retpack->c, (double)NUMTRAYS/adrt_retpack->t, (double)NUMTRAYS/adrt_retpack->c);
+    if (tie_retpack)
+	printf("adrt\t: %f seconds (%f cpu) %f wrps  %f crps\n", tie_retpack->t, tie_retpack->c, (double)NUMTRAYS/tie_retpack->t, (double)NUMTRAYS/tie_retpack->c);
 
     printf("\n");
 
-    if (rt_retpack && adrt_retpack)
-	printf("adrt shows %.3f times speedup over rt\n", (rt_retpack->c-dry_retpack->c) / (adrt_retpack->c-dry_retpack->c) - 1);
+    if (rt_retpack && tie_retpack)
+	printf("adrt shows %.3f times speedup over rt\n", (rt_retpack->c-dry_retpack->c) / (tie_retpack->c-dry_retpack->c) - 1);
 
     return EXIT_SUCCESS;
 }

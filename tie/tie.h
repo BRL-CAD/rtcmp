@@ -1,7 +1,7 @@
-/*                       G F I L E . H
- * BRL-ISST
+/*                          T I E . H
+ * RtCmp
  *
- * Copyright (c) 2014-2024 United States Government as represented by
+ * Copyright (c) 2007-2024 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -17,46 +17,31 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file cadapp.h
+/** @file rt.h
  *
- *  Manage database objects
+ * Triangle Intersection Engine (TIE) enabled librt
  *
  */
 
-#ifndef GFILE_H
-#define GFILE_H
+#ifndef _TIE_H
+#define _TIE_H
 
-extern "C" {
-#include "bn/tol.h"
-#include "raytrace.h"
+#include "rtcmp.h"
 
-#include "rt/tie.h"
-#include "adrt.h"
-#include "adrt_struct.h"
-}
+struct part    *tie_shoot(void *geom, struct xray * ray);
+double          tie_getsize(void *g);
+int             tie_getbox(void *g, point_t * min, point_t * max);
+void           *tie_constructor();
+int             tie_destructor(void *);
 
-class GFile
-{
-    public:
-	int load_g(const char *filename, int argc, const char **argv);
-	void closedb();
-
-	struct tie_s *tie;
-	struct adrt_mesh_s *meshes;
-	struct db_i *dbip;
-	TIE_3 **tribuf;
-};
-
-#endif // GFILE_H
+#endif
 
 /*
  * Local Variables:
- * mode: C++
  * tab-width: 8
- * c-basic-offset: 4
+ * mode: C
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-

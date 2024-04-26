@@ -21,8 +21,7 @@ include_directories(
   )
 
 set(rtcmp_SRCS
-  adrt/adrt.cpp
-  adrt/gfile.cpp
+  tie/tie.c
   dry/dry.c
   partm.c
   perfcomp.c
@@ -31,9 +30,7 @@ set(rtcmp_SRCS
   )
 
 set(rtcmp_HDRS
-  adrt/adrt.h
-  adrt/adrt_struct.h
-  adrt/gfile.h
+  tie/tie.h
   dry/dry.h
   perfcomp.h
   rt/rt.h
