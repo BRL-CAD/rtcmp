@@ -26,7 +26,6 @@ set(rtcmp_SRCS
   dry/dry.c
   partm.c
   perfcomp.c
-  rayforce/rayforce.c
   rt/rt.c
   rtcmp.c
   )
@@ -37,7 +36,6 @@ set(rtcmp_HDRS
   adrt/gfile.h
   dry/dry.h
   perfcomp.h
-  rayforce/rayforce.h
   rt/rt.h
   rtcmp.h
   )

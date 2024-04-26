@@ -122,16 +122,22 @@ main(int argc, char **argv)
 	return EXIT_FAILURE;
     }
 
-#define TRY(flag,prefix) if(mode&flag) prefix##_retpack = perfcomp(#prefix, argc, argv, nthreads, nproc, prefix##_constructor, prefix##_getbox, prefix##_getsize, prefix##_shoot, prefix##_destructor)
+    /* Dry run (no shotlining, establishes overhead costs) */
+    if (mode & DRY) {
+	dry_retpack = perfcomp("dry", argc, argv, nthreads, nproc, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+    }
 
-    TRY(DRY,dry);	/* prime it */
-    TRY(BRLCAD,rt);	/* librt is not optional. */
+    /* librt */
+    if (mode & BRLCAD) {
+	rt_retpack = perfcomp("rt", argc, argv, nthreads, nproc, rt_constructor, rt_getbox, rt_getsize, rt_shoot, rt_destructor);
+    }
 
-    TRY(ADRT,adrt);
+    /* ADRT */
+    if (mode & ADRT) {
+	adrt_retpack = perfcomp("adrt", argc, argv, nthreads, nproc, adrt_constructor, adrt_getbox, adrt_getsize, adrt_shoot, adrt_destructor);
+    }
 
-#undef TRY
-
-    if((mode & ADRT) && (mode & BRLCAD))
+    if((mode & ADRT) && (mode & BRLCAD)) {
 	for(c=0;c<NUMVIEWS;++c) {
 	    double rms;
 	    printf("Shot %d ", c+1);
@@ -147,17 +153,21 @@ main(int argc, char **argv)
 	    } else
 		printf("deviation[%d]: %f mm RMS\n", c, rms);
 	}
+    }
 
-#define SHOW(prefix) if(prefix##_retpack) printf(#prefix"\t: %f seconds (%f cpu) %f wrps  %f crps\n", prefix##_retpack->t, prefix##_retpack->c, (double)NUMTRAYS/prefix##_retpack->t, (double)NUMTRAYS/prefix##_retpack->c)
-    SHOW(dry);
-    SHOW(rt);
-    SHOW(adrt);
-#undef SHOW
+    if (dry_retpack)
+	printf("dry\t: %f seconds (%f cpu) %f wrps  %f crps\n", dry_retpack->t, dry_retpack->c, (double)NUMTRAYS/dry_retpack->t, (double)NUMTRAYS/dry_retpack->c);
+
+    if (rt_retpack)
+	printf("rt\t: %f seconds (%f cpu) %f wrps  %f crps\n", rt_retpack->t, rt_retpack->c, (double)NUMTRAYS/rt_retpack->t, (double)NUMTRAYS/rt_retpack->c);
+
+    if (adrt_retpack)
+	printf("adrt\t: %f seconds (%f cpu) %f wrps  %f crps\n", adrt_retpack->t, adrt_retpack->c, (double)NUMTRAYS/adrt_retpack->t, (double)NUMTRAYS/adrt_retpack->c);
 
     printf("\n");
-#define SPEEDUP(a,b) if(a##_retpack && b##_retpack) printf(#b" shows %.3f times speedup over "#a"\n", (a##_retpack->c-dry_retpack->c) / (b##_retpack->c-dry_retpack->c) - 1);
-    SPEEDUP(rt,adrt);
-#undef SPEEDUP
+
+    if (rt_retpack && adrt_retpack)
+	printf("adrt shows %.3f times speedup over rt\n", (rt_retpack->c-dry_retpack->c) / (adrt_retpack->c-dry_retpack->c) - 1);
 
     return EXIT_SUCCESS;
 }
