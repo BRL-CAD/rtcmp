@@ -1,4 +1,4 @@
-/*                      P E R F C O M P . H
+/*                            R T . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,24 +17,23 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file perfcomp.h
+/** @file rt.h
  *
- * Brief description
+ * Output librt raytrace results to a json file.
  *
  */
 
-#ifndef PERFCOMP_H
-#define PERFCOMP_H
+#ifndef _RT_JSON_H
+#define _RT_JSON_H
 
 #include "json/json.hpp"
 #include "rtcmp.h"
 
-nlohmann::json *do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
-	void*(*constructor)(char *, int, char**, nlohmann::json *),
-	int(*getbox)(void *, point_t *, point_t *),
-	double(*getsize)(void*),
-	void (*shoot)(void*, struct xray *),
-	int(*destructor)(void *));
+extern "C" void            json_shoot(void *geom, struct xray * ray);
+extern "C" double          json_getsize(void *g);
+extern "C" int             json_getbox(void *g, point_t * min, point_t * max);
+extern "C" void           *json_constructor(char *file, int numreg, char **regs, nlohmann::json *);
+extern "C" int             json_destructor(void *);
 
 #endif
 

@@ -36,6 +36,14 @@
 # include <brlcad/raytrace.h>
 #endif
 
+#include "json/json.hpp"
+
+struct app_json {
+    nlohmann::json *jshots;
+    nlohmann::json *shotparts;
+};
+
+
 #define NUMRAYS		((int)1e5)		/* this is PER VIEW */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
 #define NUMTRAYS	(NUMRAYS*NUMVIEWS)	/* total rays shot */

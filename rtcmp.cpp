@@ -42,6 +42,7 @@
 
 #include "dry/dry.h"
 #include "rt/rt.h"
+#include "json/rt_json.h"
 
 #undef PARALLEL		/* brlcad defines this, but I want my own */
 
@@ -50,6 +51,7 @@
 #define DISTRIBUTED	0x02
 #define ADRT		0x04
 #define BRLCAD		0x08
+#define JSON            0x10
 #define DRY		0x20	/* oh the horror */
 
 void
@@ -84,7 +86,7 @@ main(int argc, char **argv)
     char *pname = *argv;
     struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *tie_retpack = NULL;
 
-    while( (c = getopt( argc, argv, "abd:hp:rsv")) != -1 ){
+    while( (c = getopt( argc, argv, "abd:hjp:rsv")) != -1 ){
 	switch(c)
 	{
 	    /* serial/parallel share a bit, distributed is seperate.
@@ -97,6 +99,7 @@ main(int argc, char **argv)
 	    case 'd': mode |= DISTRIBUTED; if(optarg)nproc=atoi(optarg); break;
 	    case 'a': mode |= ADRT; break;
 	    case 'b': mode |= BRLCAD; break;
+	    case 'j': mode |= JSON; break;
 	    case 'h': dohelp(pname); return EXIT_SUCCESS;
 	    case 'v': doversion(pname); return EXIT_SUCCESS;
 	    case '?':
@@ -115,17 +118,25 @@ main(int argc, char **argv)
 
     if(mode&DISTRIBUTED) { printf("Uh, no distributed yet\n"); return EXIT_FAILURE; }
 
-    if(!(mode&(BRLCAD|ADRT))) {
+    if(!(mode&(BRLCAD|ADRT|JSON))) {
 	printf("Must select at least one raytracing engine to use\n");
 	dohelp(pname);
 	return EXIT_FAILURE;
     }
 
+#if 0
     /* Dry run (no shotlining, establishes overhead costs) */
     if (mode & DRY) {
 	dry_retpack = perfcomp("dry", argc, argv, nthreads, nproc, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
+#endif
 
+    /* librt */
+    if (mode & JSON) {
+	(void)do_perf_run("json", argc, argv, nthreads, nproc, json_constructor, json_getbox, json_getsize, json_shoot, json_destructor);
+    }
+
+#if 0
     /* librt */
     if (mode & BRLCAD) {
 	rt_retpack = perfcomp("rt", argc, argv, nthreads, nproc, rt_constructor, rt_getbox, rt_getsize, rt_shoot, rt_destructor);
@@ -167,7 +178,7 @@ main(int argc, char **argv)
 
     if (rt_retpack && tie_retpack)
 	printf("adrt shows %.3f times speedup over rt\n", (rt_retpack->c-dry_retpack->c) / (tie_retpack->c-dry_retpack->c) - 1);
-
+#endif
     return EXIT_SUCCESS;
 }
 

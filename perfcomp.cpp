@@ -32,6 +32,8 @@
 #include "rtcmp.h"
 #include "perfcomp.h"
 
+#include "json/json.hpp"
+
 #define NUMRAYSPERVIEW NUMRAYS/NUMVIEWS
 
 void
@@ -71,18 +73,16 @@ cmppartl(struct part *p1, struct part *p2)
  *	* pass in "accuracy" rays and pass back the results.
  *	* Shoot on a grid set instead of a single ray.
  */
-struct retpack_s *
-perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
-	void *(*constructor) (char *, int, char **),
+nlohmann::json *
+do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
+	void *(*constructor) (char *, int, char **, nlohmann::json *),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
-	struct part * (*shoot) (void *, struct xray * ray),
+	void (*shoot) (void *, struct xray * ray),
 	int (*destructor) (void *))
 {
-    int i, j;
     clock_t cstart, cend;
     struct part **p;
-    struct retpack_s *ret;
     struct timeval start, end;
     struct xray *ray;
     void *inst;
@@ -95,38 +95,39 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 	{0,0,1}, {0,1,0}, {1,0,0},	/* axis */
 	{1,1,1}, {1,4,-1}, {-1,-2,4}	/* non-axis */
     };
+    for(int i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
 
-    prefix = prefix;
-    nthreads = nthreads;
-    nproc = nproc;
+    nlohmann::json *jshots = new nlohmann::json();
+    if (jshots == NULL)
+       	return NULL;
 
-    ret = (struct retpack_s *)malloc(sizeof(struct retpack_s));
-    if(ret == NULL) return NULL;
+    (*jshots)["engine"] = prefix;
 
-    p = (struct part **)bu_malloc(sizeof(struct part *)*NUMTRAYS, "allocating partition space");
     ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
 
-    inst = constructor(*argv, argc-1, argv+1);
-    if(inst == NULL) { free(ret); return NULL; }
+    inst = constructor(*argv, argc-1, argv+1, jshots);
+    if (inst == NULL) {
+       	delete jshots;
+	return NULL;
+    }
 
     /* first with a legit radius gets to define the bb and sph */
     /* XXX: should this lock? */
-    if(radius < 0.0) {
+    if (radius < 0.0) {
 	radius = getsize(inst);
 	getbox(inst, bb, bb+1);
 	VADD2SCALE(bb[2], *bb, bb[1], 0.5);	/* (bb[0]+bb[1])/2 */
-	for(i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
     }
     /* XXX: if locking, we can unlock here */
 
     /* build the views with pre-defined rays, yo */
-    for(j=0;j<NUMVIEWS;++j) {
+    for(int j=0; j < NUMVIEWS; ++j) {
 	vect_t avec,bvec;
 
 	VMOVE(ray->r_dir,dir[j]);
 	VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
 
-	ret->p[j] = shoot(inst,ray);	/* shoot the accuracy ray while we're here */
+	shoot(inst,ray);	/* shoot the accuracy ray while we're here */
 
 	/* set up an othographic grid */
 	bn_vec_ortho( avec, ray->r_dir );
@@ -139,13 +140,11 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
     gettimeofday(&start,NULL); cstart = clock();
 
     /* actually shoot all the pre-defined rays */
-    for(i=0;i<NUMRAYS;++i) p[i] = shoot(inst,&ray[i]);
+    for(int i=0;i<NUMRAYS;++i)
+	shoot(inst,&ray[i]);
 
     cend = clock(); gettimeofday(&end,NULL);
     /* end of performance run */
-
-    /* return the partitions to the pool */
-    for(i=0;i<NUMRAYS;++i) free_part_r(p[i]);
 
     /* clean up */
     bu_free(ray, "ray space");
@@ -154,18 +153,19 @@ perfcomp(char *prefix, int argc, char **argv, int nthreads, int nproc,
 
     /* fill in the perfomrance data for the bundle */
 #define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
-    ret->t = SEC(end) - SEC(start);
-    ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
+    //ret->t = SEC(end) - SEC(start);
+    //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
 
-    return ret;
+    return jshots;
 }
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */
+
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
+
