@@ -68,7 +68,7 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 	jpart["out_norm"]["Y"] = pp->pt_outhit->hit_normal[Y];
 	jpart["out_norm"]["Z"] = pp->pt_outhit->hit_normal[Z];
 
-	shotparts->push_back(jpart);
+	(*shotparts)["partitions"].push_back(jpart);
     }
     return 0;
 }
@@ -104,7 +104,7 @@ json_shoot(void *g, struct xray * ray)
     rt_shootray(a);		/* call into librt */
 
     // TODO - lock?
-    j->jshots->push_back(rayparts);
+    (*j->jshots)["shots"].push_back(rayparts);
 }
 
 double
@@ -155,7 +155,10 @@ json_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
 							 * versions */
 
     /* Connect the json output container to the application structure */
-    a->a_uptr = (void *)j;
+    struct app_json *jc;
+    BU_GET(jc, struct app_json);
+    jc->jshots = j;
+    a->a_uptr = (void *)jc;
 
     return (void *) a;
 }
@@ -164,6 +167,8 @@ int
 json_destructor(void *g)
 {
     struct application *a = (struct application *)g;
+    struct app_json *jc = (struct app_json *)a->a_uptr;
+    BU_PUT(jc, struct app_json);
     rt_free_rti(a->a_rt_i);
     free(a);
     return 0;

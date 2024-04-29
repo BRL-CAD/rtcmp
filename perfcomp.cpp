@@ -97,17 +97,14 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
     };
     for(int i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
 
-    nlohmann::json *jshots = new nlohmann::json();
-    if (jshots == NULL)
-       	return NULL;
+    nlohmann::json jshots;
 
-    (*jshots)["engine"] = prefix;
+    jshots["engine"] = prefix;
 
     ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
 
-    inst = constructor(*argv, argc-1, argv+1, jshots);
+    inst = constructor(*argv, argc-1, argv+1, &jshots);
     if (inst == NULL) {
-       	delete jshots;
 	return NULL;
     }
 
@@ -148,7 +145,6 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
 
     /* clean up */
     bu_free(ray, "ray space");
-    bu_free(p, "partition space");
     destructor(inst);
 
     /* fill in the perfomrance data for the bundle */
@@ -156,7 +152,9 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
     //ret->t = SEC(end) - SEC(start);
     //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
 
-    return jshots;
+    std::cout << std::setw(4) << jshots << "\n";
+
+    return NULL;
 }
 
 
