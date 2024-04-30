@@ -2,38 +2,6 @@
 #include <iostream>
 #include "json/json.hpp"
 
-
-// https://stackoverflow.com/a/46630394/2037687
-template<class UnaryFunction>
-void recursive_iterate(const nlohmann::json& j, UnaryFunction f)
-{
-    for(auto it = j.begin(); it != j.end(); ++it)
-    {
-	if (it->is_structured())
-	{
-	    std::cout << "Unpacking\n";
-	    recursive_iterate(*it, f);
-	}
-	else
-	{
-	    f(it);
-	}
-    }
-}
-
-void
-deep_parse(const nlohmann::json &sdata)
-{
-    for(nlohmann::json::const_iterator it = sdata.begin(); it != sdata.end(); ++it) {
-	if (!it->is_structured()) {
-	    std::cout << "deep:" << it.key() << ":" << it.value() << "\n";
-	} else {
-	    const nlohmann::json &ssdata = *it;
-	    deep_parse(ssdata);
-	}
-    }
-}
-
 void
 parse_pt(const nlohmann::json &sdata)
 {
