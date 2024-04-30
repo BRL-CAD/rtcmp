@@ -29,6 +29,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include <fstream>
+
 #include "rtcmp.h"
 #include "perfcomp.h"
 
@@ -152,7 +154,11 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
     //ret->t = SEC(end) - SEC(start);
     //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
 
-    std::cout << std::setw(4) << jshots << "\n";
+    std::ofstream jfile("shotlines.json");
+    jfile << std::setw(2) << jshots << "\n";
+    jfile.close();
+
+    parse_shots_file("shotlines.json");
 
     return NULL;
 }

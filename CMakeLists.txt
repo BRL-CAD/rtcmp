@@ -22,6 +22,7 @@ include_directories(
 
 set(rtcmp_SRCS
   json/rt_json.cpp
+  jsoncmp.cpp
   #tie/tie.c
   #dry/dry.c
   #partm.c

@@ -87,6 +87,8 @@ struct retpack_s {
     struct part *p[NUMVIEWS];	/* ordered set of accuracy partition lists */
 };
 
+void parse_shots_file(const char *fname);
+
 #endif
 
 

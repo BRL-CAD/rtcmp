@@ -89,12 +89,12 @@ json_shoot(void *g, struct xray * ray)
     // Make a container for this particular shot
     
     nlohmann::json rayparts;
-    rayparts["px"] = ray->r_pt[X];
-    rayparts["py"] = ray->r_pt[Y];
-    rayparts["pz"] = ray->r_pt[Z];
-    rayparts["dx"] = ray->r_dir[X];
-    rayparts["dy"] = ray->r_dir[Y];
-    rayparts["dz"] = ray->r_dir[Z];
+    rayparts["ray_pt"]["X"] = ray->r_pt[X];
+    rayparts["ray_pt"]["Y"] = ray->r_pt[Y];
+    rayparts["ray_pt"]["Z"] = ray->r_pt[Z];
+    rayparts["ray_dir"]["X"] = ray->r_dir[X];
+    rayparts["ray_dir"]["Y"] = ray->r_dir[Y];
+    rayparts["ray_dir"]["Z"] = ray->r_dir[Z];
 
     // TODO - need parallel awareness in shotparts container?
     j->shotparts = &rayparts;
