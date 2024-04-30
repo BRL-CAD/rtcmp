@@ -1,4 +1,4 @@
-/*                            R T . C
+/*                        R T _ P E R F . C
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -23,6 +23,7 @@
  *
  */
 
+extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,48 +33,23 @@
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
+}
 
-#include "rt/rt.h"
+#include "rt/rt_perf.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
     /* (set! a->a_uptr (map translate p)) */
-    struct part *f, *c, *l;	/* first, current, last */
     struct partition *pp;
-    f = c = l = NULL;
-    s = NULL;
 
     /* walk the partition list */
     for (pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
 
-	/* get a fresh part cell from the memory manager. Append it to
-	 * the end of the list.
-	 * (would it be better to wrap this, or do cons style?) */
-	if(f==NULL)
-	    f = c = l = get_part();
-	else {
-	    l->next = c = get_part();
-	    l = c;
-	}
-	c->next = NULL;
-
 	/* generate the in/out normals */
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray, 0);
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
-
-	/* copy the useful factors */
-	c->in_dist = pp->pt_inhit->hit_dist;
-	c->out_dist = pp->pt_outhit->hit_dist;
-	strncpy(c->region, pp->pt_regionp->reg_name, NAMELEN-1);
-	VMOVE(c->in, pp->pt_inhit->hit_point);
-	VMOVE(c->out, pp->pt_outhit->hit_point);
-	VMOVE(c->innorm, pp->pt_inhit->hit_normal);
-	VMOVE(c->outnorm, pp->pt_outhit->hit_normal);
-	/* and compute the hit depth */
-	c->depth = c->out_dist - c->in_dist;
     }
-    a->a_uptr = (void *)f;
     return 0;
 }
 
@@ -84,25 +60,24 @@ miss(struct application * a)
     return 0;
 }
 
-struct part    *
-rt_shoot(void *g, struct xray * ray)
+void
+rt_perf_shoot(void *g, struct xray * ray)
 {
     struct application *a = (struct application *)g;
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
     rt_shootray(a);		/* call into librt */
-    return (struct part *) a->a_uptr;
 }
 
 double
-rt_getsize(void *g)
+rt_perf_getsize(void *g)
 {
     struct application *a = (struct application *)g;
     return a->a_rt_i->rti_radius;
 }
 
 int
-rt_getbox(void *g, point_t * min, point_t * max)
+rt_perf_getbox(void *g, point_t * min, point_t * max)
 {
     struct application *a = (struct application *)g;
     VMOVE(*min, a->a_rt_i->mdl_min);
@@ -111,7 +86,7 @@ rt_getbox(void *g, point_t * min, point_t * max)
 }
 
 void           *
-rt_constructor(char *file, int numreg, char **regs)
+rt_perf_constructor(char *file, int numreg, char **regs)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -144,7 +119,7 @@ rt_constructor(char *file, int numreg, char **regs)
 }
 
 int
-rt_destructor(void *g)
+rt_perf_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     rt_free_rti(a->a_rt_i);

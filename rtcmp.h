@@ -36,7 +36,7 @@
 # include <brlcad/raytrace.h>
 #endif
 
-#include "json/json.hpp"
+#include "json.hpp"
 
 struct app_json {
     nlohmann::json *jshots;

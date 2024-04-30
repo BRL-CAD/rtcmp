@@ -1,4 +1,4 @@
-/*                           D R Y . H
+/*                         R T _ A C C . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,26 +17,23 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file dry.h
+/** @file rt_acc.h
  *
- * The "dry" raytrace method does not calculate any geometry intersections.
- * Rather, it provides an "upper bound" to characterize overhead introduced by
- * logic other than the actual intersection calculations.  In effect, it
- * simulates the numbers one would expect with an infinitely fast raytracer -
- * all *real* timings should be slower than a dry run, modulo resource
- * starvation or other operating system related testing interference.
+ * Output librt raytrace results to a json file.
+ *
  */
 
-#ifndef _DRY_H
-#define _DRY_H
+#ifndef _RT_JSON_H
+#define _RT_JSON_H
 
+#include "json.hpp"
 #include "rtcmp.h"
 
-extern "C" void     dry_shoot(void *geom, struct xray * ray);
-extern "C" double   dry_getsize(void *g);
-extern "C" int      dry_getbox(void *g, point_t * min, point_t * max);
-extern "C" void    *dry_constructor(char *file, int numreg, char **regs);
-extern "C" int      dry_destructor(void *);
+extern "C" void    rt_acc_shoot(void *geom, struct xray * ray);
+extern "C" double  rt_acc_getsize(void *g);
+extern "C" int     rt_acc_getbox(void *g, point_t * min, point_t * max);
+extern "C" void   *rt_acc_constructor(char *file, int numreg, char **regs, nlohmann::json *);
+extern "C" int     rt_acc_destructor(void *);
 
 #endif
 

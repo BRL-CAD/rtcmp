@@ -34,7 +34,7 @@
 #include "rtcmp.h"
 #include "perfcomp.h"
 
-#include "json/json.hpp"
+#include "json.hpp"
 
 #define NUMRAYSPERVIEW NUMRAYS/NUMVIEWS
 
@@ -102,6 +102,7 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
     nlohmann::json jshots;
 
     jshots["engine"] = prefix;
+    jshots["data_version"] = "1.0";
 
     ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
 

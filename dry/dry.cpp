@@ -29,29 +29,23 @@
 
 #include "dry/dry.h"
 
-#define SET(x)  \
-    p[x] = get_part(); \
-    strncpy(p[x]->region,"/some/nifty/little/part.r",NAMELEN); \
-    VSET(p[x]->in,0,0,0); \
-    VSET(p[x]->out,0,0,0); \
-    VSET(p[x]->innorm,0,0,0); \
-    VSET(p[x]->outnorm,0,0,0); \
-    p[x]->in_dist = 0; \
-    p[x]->out_dist = 0;
+#define SET()  \
+    strncpy(p.region,"/some/nifty/little/part.r",NAMELEN); \
+    VSET(p.in,0,0,0); \
+    VSET(p.out,0,0,0); \
+    VSET(p.innorm,0,0,0); \
+    VSET(p.outnorm,0,0,0); \
+    p.in_dist = 0; \
+    p.out_dist = 0; \
+    bu_free(p.region, "region");
 
-struct part    *
+void
 dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
 {
-    struct part *p[4];
-    SET(0);
-    SET(1);
-    SET(2);
-    SET(3);
-    p[0]->next = p[1];
-    p[1]->next = p[2];
-    p[2]->next = p[3];
-    p[3]->next = NULL;
-    return p[0];
+    for (int i = 0; i < 4; i++) {
+    struct part p;
+    SET();
+    }
 }
 
 double

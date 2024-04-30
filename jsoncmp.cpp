@@ -1,6 +1,6 @@
 #include <fstream>
 #include <iostream>
-#include "json/json.hpp"
+#include "json.hpp"
 
 void
 parse_pt(const nlohmann::json &sdata)
@@ -92,6 +92,8 @@ parse_shots_file(const char *fname)
 {
     std::ifstream f(fname);
     nlohmann::json fdata = nlohmann::json::parse(f);
+    const std::string data_version = fdata["data_version"];
+    std::cout << "data version:" << data_version << "\n";
     const std::string etype = fdata["engine"];
     std::cout << "engine type:" << etype << "\n";
 

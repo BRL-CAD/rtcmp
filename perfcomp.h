@@ -26,11 +26,10 @@
 #ifndef PERFCOMP_H
 #define PERFCOMP_H
 
-#include "json/json.hpp"
 #include "rtcmp.h"
 
-nlohmann::json *do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
-	void*(*constructor)(char *, int, char**, nlohmann::json *),
+void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
+	void*(*constructor)(char *, int, char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),

@@ -19,167 +19,111 @@
  */
 /** @file rtcmp.c
  *
- * Brief description
+ *
  *
  */
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
+#include "cxxopts.hpp"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-/* Meh. */
-#ifdef __linux__
-# include <getopt.h>
-#endif
-
+#include "accucheck.h"
 #include "perfcomp.h"
 
+#include "dry/dry.h"
+#include "rt/rt_acc.h"
+#include "rt/rt_perf.h"
 #include "tie/tie.h"
 
-#include "dry/dry.h"
-#include "rt/rt.h"
-#include "json/rt_json.h"
-
-#undef PARALLEL		/* brlcad defines this, but I want my own */
-
-/* mode bitfield ... hurrrrr, I'm special. :D */
-#define PARALLEL	0x01
-#define DISTRIBUTED	0x02
-#define ADRT		0x04
-#define BRLCAD		0x08
-#define JSON            0x10
-#define DRY		0x20	/* oh the horror */
-
-void
-doversion(char *name)
-{
-    printf("rtcmp (1.0) (C) 2007 US Army Research Lab - Erik Greenwald <erikg@arl.army.mil>\n");
-    return;
-}
-void
-dohelp(char *name)
-{
-    doversion(name);
-    printf("Usage:\n\
-	    \t%s [options] <geom.g> <component 1> [component 2] ...\n\
-	    \n\
-	    \t-s		Serial mode (not threaded)\n\
-	    \t-p<threads>	Parallel mode (threaded)\n\
-	    \t-d<procs>	Distributed mode (not implemented)\n\
-	    \n\
-	    \t-a		Use TIE\n\
-	    \t-b		Use BRL-CAD librt\n\
-	    \n\
-	    \t-h		Help\n\
-	    \t-v		Version\n\
-	    \n", name);
-}
+#include "accucheck.h"
+#include "perfcomp.h"
 
 int
 main(int argc, char **argv)
 {
-    int c, mode = DRY, nthreads = 0, nproc = 0;
-    char *pname = *argv;
-    struct retpack_s *dry_retpack = NULL, *rt_retpack = NULL, *tie_retpack = NULL;
+    int ncpus = 0;
+    bool use_tie = false;
+    bool dry_run = false;
+    bool enable_tie = false;
+    bool performance_test = false;
+    bool accuracy_test = false;
+    bool compare_json = false;
+    std::string json_ofile;
+    std::vector<std::string> nonopts;
 
-    while( (c = getopt( argc, argv, "abd:hjp:rsv")) != -1 ){
-	switch(c)
-	{
-	    /* serial/parallel share a bit, distributed is seperate.
-	     * This lets us do things like declare serial but
-	     * distributed (if that makes sense... serial/parallel
-	     * talks about threads, not seperate processes)
-	     */
-	    case 's': mode &= ~PARALLEL; break;	/* serial (not parallel) */
-	    case 'p': mode |= PARALLEL; if(optarg)nthreads=atoi(optarg); break;	/* parallel */
-	    case 'd': mode |= DISTRIBUTED; if(optarg)nproc=atoi(optarg); break;
-	    case 'a': mode |= ADRT; break;
-	    case 'b': mode |= BRLCAD; break;
-	    case 'j': mode |= JSON; break;
-	    case 'h': dohelp(pname); return EXIT_SUCCESS;
-	    case 'v': doversion(pname); return EXIT_SUCCESS;
-	    case '?':
-	    default: dohelp(*argv); return EXIT_FAILURE;
-	}
-    }
-    argc -= optind;
-    argv += optind;
+    cxxopts::Options options(argv[0], "A program to evaluate raytracer performance and correctness\n");
 
-    if(argc <= 0) return dohelp(pname), EXIT_FAILURE;
+    try
+    {
+	options
+	    .set_width(70)
+	    .custom_help("[OPTIONS...] file.g geom | [-c results1.json results2.json]")
+	    .add_options()
+	    ("n,num-cpus",         "Number of CPUs to use for performance runs - >1 means a parallel run, 1 is a serial run, 0 (default) means use maximize CPU usage", cxxopts::value<int>(ncpus))
+	    ("enable-tie",         "Use the Triangle Intersection Engine in librt", cxxopts::value<bool>(use_tie))
+	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(dry_run))
+	    ("t,test-performance", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
+	    ("a,test-accuracy",    "Run tests to generate input files for accuracy comparisons", cxxopts::value<bool>(accuracy_test))
+	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
+	    ("output-json",        "Compare two JSON results files", cxxopts::value<std::string>(json_ofile))
+	    ("h,help",             "Print help")
+	    ;
+	auto result = options.parse(argc, argv);
 
-    if(mode&PARALLEL && nthreads == 0) {
-	nthreads = bu_avail_cpus() * 2 - 1;
-	if(nthreads <= 1) nthreads = 2;
-    }
+	nonopts = result.unmatched();
 
-    if(mode&DISTRIBUTED) { printf("Uh, no distributed yet\n"); return EXIT_FAILURE; }
-
-    if(!(mode&(BRLCAD|ADRT|JSON))) {
-	printf("Must select at least one raytracing engine to use\n");
-	dohelp(pname);
-	return EXIT_FAILURE;
-    }
-
-#if 0
-    /* Dry run (no shotlining, establishes overhead costs) */
-    if (mode & DRY) {
-	dry_retpack = perfcomp("dry", argc, argv, nthreads, nproc, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
-    }
-#endif
-
-    /* librt */
-    if (mode & JSON) {
-	(void)do_perf_run("json", argc, argv, nthreads, nproc, json_constructor, json_getbox, json_getsize, json_shoot, json_destructor);
-    }
-
-#if 0
-    /* librt */
-    if (mode & BRLCAD) {
-	rt_retpack = perfcomp("rt", argc, argv, nthreads, nproc, rt_constructor, rt_getbox, rt_getsize, rt_shoot, rt_destructor);
-    }
-
-    /* ADRT */
-    if (mode & ADRT) {
-	tie_retpack = perfcomp("adrt", argc, argv, nthreads, nproc, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
-    }
-
-    if((mode & ADRT) && (mode & BRLCAD)) {
-	for(c=0;c<NUMVIEWS;++c) {
-	    double rms;
-	    printf("Shot %d ", c+1);
-	    if( !rt_retpack && !tie_retpack ) {
-		printf("%s retpack missing!\n", !rt_retpack?"rt_retpack":"tie_retpack");
-		exit(-1);
-	    }
-	    rms = cmppartl(rt_retpack->p[c], tie_retpack->p[c]);
-	    if(rms < 0.0) {
-		printf("- region list differs!!!\n");
-		printf("LIBRT: "); showpart(rt_retpack->p[c]); printf("\n");
-		printf("ADRT:  "); showpart(tie_retpack->p[c]); printf("\n");
-	    } else
-		printf("deviation[%d]: %f mm RMS\n", c, rms);
+	if (result.count("help")) {
+	    std::cout << options.help({""}) << std::endl;
+	    std::cout << "\n";
+	    return 0;
 	}
     }
 
-    if (dry_retpack)
-	printf("dry\t: %f seconds (%f cpu) %f wrps  %f crps\n", dry_retpack->t, dry_retpack->c, (double)NUMTRAYS/dry_retpack->t, (double)NUMTRAYS/dry_retpack->c);
+    catch (const cxxopts::exceptions::exception& e)
+    {
+	std::cerr << "error parsing options: " << e.what() << std::endl;
+	return -1;
+    }
 
-    if (rt_retpack)
-	printf("rt\t: %f seconds (%f cpu) %f wrps  %f crps\n", rt_retpack->t, rt_retpack->c, (double)NUMTRAYS/rt_retpack->t, (double)NUMTRAYS/rt_retpack->c);
+    if (nonopts.size() != 2) {
+	if (compare_json) {
+	    std::cerr << "Error:  need to specify two JSON results files\n";
+	} else {
+	    std::cerr << "Error:  need to specify a geometry file and object\n";
+	}
+	return -1;
+    }
 
-    if (tie_retpack)
-	printf("adrt\t: %f seconds (%f cpu) %f wrps  %f crps\n", tie_retpack->t, tie_retpack->c, (double)NUMTRAYS/tie_retpack->t, (double)NUMTRAYS/tie_retpack->c);
+    /* Dry run (no shotlining, establishes overhead costs - accuracy run is a no-op) */
+    if (dry_run) {
+	if (accuracy_test) {
+	    std::cerr << "Dry-run method does not support generating JSON output for accuracy comparisons\n";
+	    return -1;
+	}
+	do_perf_run("dry", argc, argv, ncpus, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+    }
 
-    printf("\n");
+    /* librt */
+    if (!enable_tie) {
+	if (accuracy_test) {
+	    do_accu_run("rt", argc, argv, ncpus, rt_acc_constructor, rt_acc_getbox, rt_acc_getsize, rt_acc_shoot, rt_acc_destructor);
+	}
+	if (performance_test) {
+	    do_perf_run("rt", argc, argv, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	}
+    }
 
-    if (rt_retpack && tie_retpack)
-	printf("adrt shows %.3f times speedup over rt\n", (rt_retpack->c-dry_retpack->c) / (tie_retpack->c-dry_retpack->c) - 1);
+#if 0
+    /* TIE */
+    if (enable_tie) {
+	if (accuracy_test) {
+	    do_perf_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
+	}
+	if (performance_test) {
+	    do_perf_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
+	}
+    }
 #endif
-    return EXIT_SUCCESS;
+
+    return 0;
 }
 
 /*

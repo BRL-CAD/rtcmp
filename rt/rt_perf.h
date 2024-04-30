@@ -1,4 +1,4 @@
-/*                            R T . H
+/*                          R T _ P E R F . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt.h
+/** @file rt_perf.h
  *
  * The "standard" librt geometry/ray intersection engine.
  *
@@ -28,11 +28,11 @@
 
 #include "rtcmp.h"
 
-struct part    *rt_shoot(void *geom, struct xray * ray);
-double          rt_getsize(void *g);
-int             rt_getbox(void *g, point_t * min, point_t * max);
-void           *rt_constructor();
-int             rt_destructor(void *);
+void            rt_perf_shoot(void *geom, struct xray * ray);
+double          rt_perf_getsize(void *g);
+int             rt_perf_getbox(void *g, point_t * min, point_t * max);
+void           *rt_perf_constructor(char*, int, char**);
+int             rt_perf_destructor(void *);
 
 #endif
 

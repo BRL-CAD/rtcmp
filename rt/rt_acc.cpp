@@ -1,4 +1,4 @@
-/*                      R T _ J S O N . C
+/*                      R T _ A C C . C
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt_json.cpp
+/** @file rt_acc.cpp
  *
  * Output raytrace results to a json file
  *
@@ -35,15 +35,15 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
-#include "json/rt_json.h"
-#include "json/json.hpp"
+#include "json.hpp"
+#include "rt/rt_acc.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
     struct app_json *j = (struct app_json *)a->a_uptr;
     nlohmann::json *shotparts = j->shotparts;
-    
+
     /* walk the partition list */
     for (struct partition *pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
 
@@ -81,13 +81,13 @@ miss(struct application * a)
 
 /* Note - output data is stored in the json container */
 void
-json_shoot(void *g, struct xray * ray)
+rt_acc_shoot(void *g, struct xray * ray)
 {
     struct application *a = (struct application *)g;
     struct app_json *j = (struct app_json *)a->a_uptr;
 
     // Make a container for this particular shot
-    
+
     nlohmann::json rayparts;
     rayparts["ray_pt"]["X"] = ray->r_pt[X];
     rayparts["ray_pt"]["Y"] = ray->r_pt[Y];
@@ -108,14 +108,14 @@ json_shoot(void *g, struct xray * ray)
 }
 
 double
-json_getsize(void *g)
+rt_acc_getsize(void *g)
 {
     struct application *a = (struct application *)g;
     return a->a_rt_i->rti_radius;
 }
 
 int
-json_getbox(void *g, point_t * min, point_t * max)
+rt_acc_getbox(void *g, point_t * min, point_t * max)
 {
     struct application *a = (struct application *)g;
     VMOVE(*min, a->a_rt_i->mdl_min);
@@ -124,7 +124,7 @@ json_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-json_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
+rt_acc_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -164,7 +164,7 @@ json_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
 }
 
 int
-json_destructor(void *g)
+rt_acc_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     struct app_json *jc = (struct app_json *)a->a_uptr;

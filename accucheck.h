@@ -1,4 +1,4 @@
-/*                            R T . H
+/*                      A C C U C H E C K . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,23 +17,27 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt.h
+/** @file perfcomp.h
  *
- * Output librt raytrace results to a json file.
+ * Brief description
  *
  */
 
-#ifndef _RT_JSON_H
-#define _RT_JSON_H
+#ifndef ACCUCHECK_H
+#define ACCUCHECK_H
 
-#include "json/json.hpp"
+#include "json.hpp"
 #include "rtcmp.h"
 
-extern "C" void            json_shoot(void *geom, struct xray * ray);
-extern "C" double          json_getsize(void *g);
-extern "C" int             json_getbox(void *g, point_t * min, point_t * max);
-extern "C" void           *json_constructor(char *file, int numreg, char **regs, nlohmann::json *);
-extern "C" int             json_destructor(void *);
+void do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
+	void*(*constructor)(char *, int, char**, nlohmann::json *),
+	int(*getbox)(void *, point_t *, point_t *),
+	double(*getsize)(void*),
+	void (*shoot)(void*, struct xray *),
+	int(*destructor)(void *));
+
+
+void compare_shots(const char *r1, const char *r2);
 
 #endif
 
