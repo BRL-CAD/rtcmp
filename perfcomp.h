@@ -26,6 +26,7 @@
 #ifndef PERFCOMP_H
 #define PERFCOMP_H
 
+#include "vmath.h"
 #include "rtcmp.h"
 
 void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,

@@ -23,6 +23,8 @@
  *
  */
 
+#include <iostream>
+
 #include "cxxopts.hpp"
 
 #include "accucheck.h"
@@ -32,9 +34,6 @@
 #include "rt/rt_acc.h"
 #include "rt/rt_perf.h"
 #include "tie/tie.h"
-
-#include "accucheck.h"
-#include "perfcomp.h"
 
 int
 main(int argc, char **argv)

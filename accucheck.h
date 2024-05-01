@@ -27,9 +27,11 @@
 #define ACCUCHECK_H
 
 #include "json.hpp"
+#include "vmath.h"
 #include "rtcmp.h"
 
-void do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
+nlohmann::json *
+do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
 	void*(*constructor)(char *, int, char**, nlohmann::json *),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),

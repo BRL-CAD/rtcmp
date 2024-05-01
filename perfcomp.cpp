@@ -75,9 +75,9 @@ cmppartl(struct part *p1, struct part *p2)
  *	* pass in "accuracy" rays and pass back the results.
  *	* Shoot on a grid set instead of a single ray.
  */
-nlohmann::json *
-do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
-	void *(*constructor) (char *, int, char **, nlohmann::json *),
+void
+do_perf_run(const char *prefix, int argc, char **argv, int nthreads,
+	void *(*constructor) (char *, int, char **),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),
@@ -99,16 +99,12 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
     };
     for(int i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
 
-    nlohmann::json jshots;
-
-    jshots["engine"] = prefix;
-    jshots["data_version"] = "1.0";
 
     ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
 
-    inst = constructor(*argv, argc-1, argv+1, &jshots);
+    inst = constructor(*argv, argc-1, argv+1);
     if (inst == NULL) {
-	return NULL;
+	return;
     }
 
     /* first with a legit radius gets to define the bb and sph */
@@ -154,14 +150,6 @@ do_perf_run(const char *prefix, int argc, char **argv, int nthreads, int nproc,
 #define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
     //ret->t = SEC(end) - SEC(start);
     //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
-
-    std::ofstream jfile("shotlines.json");
-    jfile << std::setw(2) << jshots << "\n";
-    jfile.close();
-
-    parse_shots_file("shotlines.json");
-
-    return NULL;
 }
 
 
