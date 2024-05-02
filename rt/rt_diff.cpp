@@ -40,6 +40,11 @@ extern "C" {
 #include "json.hpp"
 #include "rt/rt_diff.h"
 
+struct app_json {
+    nlohmann::json *jshots;
+    nlohmann::json *shotparts;
+};
+
 static std::string
 d2s(double d)
 {

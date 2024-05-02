@@ -64,15 +64,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus,
 
 
 /* Structures and functions for comparing outputs between raytrace runs */
-
-struct app_json {
-    nlohmann::json *jshots;
-    nlohmann::json *shotparts;
-};
-
 class run_part {
     public:
-	bool cmp(class run_part &o);
+	bool cmp(class run_part &o, double tol);
 	void print();
 
 	std::string region;
@@ -86,7 +80,7 @@ class run_part {
 
 class run_shot {
     public:
-	bool cmp(class run_shot &o);
+	bool cmp(class run_shot &o, double tol);
 	void print();
 	point_t ray_pt;
 	vect_t ray_dir;
@@ -95,7 +89,7 @@ class run_shot {
 
 class run_shotset {
     public:
-	bool cmp(class run_shotset &o);
+	bool cmp(class run_shotset &o, double tol);
 	void print();
 	std::string data_version;
 	std::string engine;
