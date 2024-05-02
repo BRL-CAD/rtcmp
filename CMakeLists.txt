@@ -22,7 +22,7 @@ include_directories(
 
 set(rtcmp_SRCS
   dry/dry.cpp
-  rt/rt_acc.cpp
+  rt/rt_diff.cpp
   rt/rt_perf.cpp
   jsoncmp.cpp
   #tie/tie.c

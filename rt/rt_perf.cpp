@@ -1,4 +1,4 @@
-/*                        R T _ P E R F . C
+/*                    R T _ P E R F . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,9 +17,10 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt.c
+/** @file rt_perf.cpp
  *
- * The "standard" librt geometry/ray intersection engine.
+ * The "standard" librt geometry/ray intersection engine - performance
+ * centric functions.
  *
  */
 
@@ -127,12 +128,12 @@ rt_perf_destructor(void *g)
     return 0;
 }
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
+

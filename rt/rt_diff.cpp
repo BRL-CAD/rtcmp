@@ -1,4 +1,4 @@
-/*                      R T _ A C C . C
+/*                    R T _ D I F F . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt_acc.cpp
+/** @file rt_diff.cpp
  *
  * Output raytrace results to a json file
  *
@@ -38,7 +38,7 @@ extern "C" {
 #include <limits>
 #include <iomanip>
 #include "json.hpp"
-#include "rt/rt_acc.h"
+#include "rt/rt_diff.h"
 
 static std::string
 d2s(double d)
@@ -186,12 +186,12 @@ rt_acc_destructor(void *g)
     return 0;
 }
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
+

@@ -28,7 +28,7 @@
 #include "cxxopts.hpp"
 
 #include "dry/dry.h"
-#include "rt/rt_acc.h"
+#include "rt/rt_diff.h"
 #include "rt/rt_perf.h"
 #include "tie/tie.h"
 
