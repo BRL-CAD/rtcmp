@@ -63,10 +63,10 @@ static int alloc_part(int count)
 
     /* "pages" */
     nslabs ++;
-    slabs = realloc(slabs, sizeof(void *) * nslabs);
+    slabs = (void **)realloc(slabs, sizeof(void *) * nslabs);
 
     /* initialize cells in the page */
-    t = n = (void *)malloc(sizeof(struct part)*count);
+    t = n = (struct part *)malloc(sizeof(struct part)*count);
     while(--count) {
 	t->next = t+1;
 	t = t->next;
@@ -78,7 +78,6 @@ static int alloc_part(int count)
     return 0;
 }
 
-
 
 /*** exported functions ***/
 
