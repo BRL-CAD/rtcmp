@@ -1,21 +1,34 @@
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <limits>
 #include <time.h>
 #include <sys/time.h>
 
 #include "rtcmp.h"
 
 void
-parse_pt(const nlohmann::json &sdata)
+parse_pt(point_t *p, const nlohmann::json &sdata)
 {
+    size_t prec = std::numeric_limits<double>::max_digits10;
     if (sdata.contains("X")) {
-	std::cout << "	X:" << sdata["X"] << "\n";
+	std::string s(sdata["X"]);
+	std::stringstream ss(s);
+	ss >> std::setprecision(prec) >> std::fixed >> (*p)[X];
+	std::cout << "	X:" << (*p)[X] << "\n";
     }
     if (sdata.contains("Y")) {
-	std::cout << "	Y:" << sdata["Y"] << "\n";
+	std::string s(sdata["Y"]);
+	std::stringstream ss(s);
+	ss >> std::setprecision(prec) >> std::fixed >> (*p)[Y];
+	std::cout << "	Y:" << (*p)[Y] << "\n";
     }
     if (sdata.contains("Z")) {
-	std::cout << "	Z:" << sdata["Z"] << "\n";
+	std::string s(sdata["Z"]);
+	std::stringstream ss(s);
+	ss >> std::setprecision(prec) >> std::fixed >> (*p)[Z];
+	std::cout << "	Z:" << (*p)[Z] << "\n";
     }
 }
 
@@ -34,28 +47,30 @@ parse_partition_data_entry(const nlohmann::json &sdata)
 	std::cout << "partition out_dist: " << sdata["out_dist"] <<  "\n";
     }
 
+    point_t p;
+
     if (sdata.contains("in_pt")) {
 	std::cout << "partition in_pt:\n";
 	const nlohmann::json &ssdata = sdata["in_pt"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
     if (sdata.contains("out_pt")) {
 	std::cout << "partition out_pt:\n";
 	const nlohmann::json &ssdata = sdata["out_pt"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
     if (sdata.contains("in_norm")) {
 	std::cout << "partition in_norm:\n";
 	const nlohmann::json &ssdata = sdata["in_norm"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
     if (sdata.contains("out_norm")) {
 	std::cout << "partition out_norm:\n";
 	const nlohmann::json &ssdata = sdata["out_norm"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
 }
@@ -72,16 +87,17 @@ parse_partitions(const nlohmann::json &sdata)
 void
 parse_shots(const nlohmann::json &sdata)
 {
+    point_t p;
     if (sdata.contains("ray_pt")) {
 	std::cout << "ray_pt:\n";
 	const nlohmann::json &ssdata = sdata["ray_pt"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
     if (sdata.contains("ray_dir")) {
 	std::cout << "ray_dir:\n";
 	const nlohmann::json &ssdata = sdata["ray_dir"];
-	parse_pt(ssdata);
+	parse_pt(&p, ssdata);
     }
 
     if (sdata.contains("partitions")) {

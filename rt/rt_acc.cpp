@@ -35,8 +35,20 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
+#include <limits>
+#include <iomanip>
 #include "json.hpp"
 #include "rt/rt_acc.h"
+
+static std::string
+d2s(double d)
+{
+    size_t prec = std::numeric_limits<double>::max_digits10;
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(prec) << d;
+    std::string sd = ss.str();
+    return sd;
+}
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
@@ -53,20 +65,20 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 
 	nlohmann::json jpart;
 	jpart["region"] = pp->pt_regionp->reg_name;
-	jpart["in_dist"] = pp->pt_inhit->hit_dist;
-	jpart["out_dist"] = pp->pt_outhit->hit_dist;
-	jpart["in_pt"]["X"] = pp->pt_inhit->hit_point[X];
-	jpart["in_pt"]["Y"] = pp->pt_inhit->hit_point[Y];
-	jpart["in_pt"]["Z"] = pp->pt_inhit->hit_point[Z];
-	jpart["out_pt"]["X"] = pp->pt_outhit->hit_point[X];
-	jpart["out_pt"]["Y"] = pp->pt_outhit->hit_point[Y];
-	jpart["out_pt"]["Z"] = pp->pt_outhit->hit_point[Z];
-	jpart["in_norm"]["X"] = pp->pt_inhit->hit_normal[X];
-	jpart["in_norm"]["Y"] = pp->pt_inhit->hit_normal[Y];
-	jpart["in_norm"]["Z"] = pp->pt_inhit->hit_normal[Z];
-	jpart["out_norm"]["X"] = pp->pt_outhit->hit_normal[X];
-	jpart["out_norm"]["Y"] = pp->pt_outhit->hit_normal[Y];
-	jpart["out_norm"]["Z"] = pp->pt_outhit->hit_normal[Z];
+	jpart["in_dist"] = d2s(pp->pt_inhit->hit_dist);
+	jpart["out_dist"] = d2s(pp->pt_outhit->hit_dist);
+	jpart["in_pt"]["X"] = d2s(pp->pt_inhit->hit_point[X]);
+	jpart["in_pt"]["Y"] = d2s(pp->pt_inhit->hit_point[Y]);
+	jpart["in_pt"]["Z"] = d2s(pp->pt_inhit->hit_point[Z]);
+	jpart["out_pt"]["X"] = d2s(pp->pt_outhit->hit_point[X]);
+	jpart["out_pt"]["Y"] = d2s(pp->pt_outhit->hit_point[Y]);
+	jpart["out_pt"]["Z"] = d2s(pp->pt_outhit->hit_point[Z]);
+	jpart["in_norm"]["X"] = d2s(pp->pt_inhit->hit_normal[X]);
+	jpart["in_norm"]["Y"] = d2s(pp->pt_inhit->hit_normal[Y]);
+	jpart["in_norm"]["Z"] = d2s(pp->pt_inhit->hit_normal[Z]);
+	jpart["out_norm"]["X"] = d2s(pp->pt_outhit->hit_normal[X]);
+	jpart["out_norm"]["Y"] = d2s(pp->pt_outhit->hit_normal[Y]);
+	jpart["out_norm"]["Z"] = d2s(pp->pt_outhit->hit_normal[Z]);
 
 	(*shotparts)["partitions"].push_back(jpart);
     }
@@ -89,12 +101,12 @@ rt_acc_shoot(void *g, struct xray * ray)
     // Make a container for this particular shot
 
     nlohmann::json rayparts;
-    rayparts["ray_pt"]["X"] = ray->r_pt[X];
-    rayparts["ray_pt"]["Y"] = ray->r_pt[Y];
-    rayparts["ray_pt"]["Z"] = ray->r_pt[Z];
-    rayparts["ray_dir"]["X"] = ray->r_dir[X];
-    rayparts["ray_dir"]["Y"] = ray->r_dir[Y];
-    rayparts["ray_dir"]["Z"] = ray->r_dir[Z];
+    rayparts["ray_pt"]["X"] = d2s(ray->r_pt[X]);
+    rayparts["ray_pt"]["Y"] = d2s(ray->r_pt[Y]);
+    rayparts["ray_pt"]["Z"] = d2s(ray->r_pt[Z]);
+    rayparts["ray_dir"]["X"] = d2s(ray->r_dir[X]);
+    rayparts["ray_dir"]["Y"] = d2s(ray->r_dir[Y]);
+    rayparts["ray_dir"]["Z"] = d2s(ray->r_dir[Z]);
 
     // TODO - need parallel awareness in shotparts container?
     j->shotparts = &rayparts;
