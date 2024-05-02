@@ -392,7 +392,7 @@ run_shot::ray_hash()
     if (!rhash) {
 	struct bu_data_hash_state *h = bu_data_hash_create();
 	bu_data_hash_update(h, (const void *)ray_pt, sizeof(point_t));
-	bu_data_hash_update(h, (const void *)ray_dir, sizeof(point_t));
+	bu_data_hash_update(h, (const void *)ray_dir, sizeof(vect_t));
 	rhash = bu_data_hash_val(h);
 	bu_data_hash_destroy(h);
     }
