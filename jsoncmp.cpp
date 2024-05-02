@@ -126,6 +126,7 @@ parse_shots_file(const char *fname)
 	const nlohmann::json &sdata = *it;
 	run_shot rs;
 	parse_shot(rs, sdata);
+	ss->shot_lookup[rs.ray_hash()] = ss->shots.size();
 	ss->shots.push_back(rs);
     }
 
@@ -373,7 +374,11 @@ run_shot::cmp(class run_shot &o, double tol)
     // graphically "pick" a scene object corresponding to a problematic ray and get
     // its exact shotline info via name lookup.
 
-    return (!o_unmatched.size() && !c_unmatched.size());
+    // If we're not already false, see if we saw any differences
+    if (ret)
+	ret = (!o_unmatched.size() && !c_unmatched.size());
+
+    return ret;
 }
 
 void
@@ -381,10 +386,23 @@ run_shot::print()
 {
 }
 
+unsigned long long
+run_shot::ray_hash()
+{
+    if (!rhash) {
+	struct bu_data_hash_state *h = bu_data_hash_create();
+	bu_data_hash_update(h, (const void *)ray_pt, sizeof(point_t));
+	bu_data_hash_update(h, (const void *)ray_dir, sizeof(point_t));
+	rhash = bu_data_hash_val(h);
+	bu_data_hash_destroy(h);
+    }
+    return rhash;
+}
 
 bool
 run_shotset::cmp(class run_shotset &o, double tol)
 {
+    bool ret = true;
 
     // What do we need to do to compare a shot set?
     //
@@ -394,13 +412,39 @@ run_shotset::cmp(class run_shotset &o, double tol)
     // unmatched rays, the ultimate result will technically be a failure, but
     // probably want to proceed anyway to get any additional insights from the
     // data we can.
+    std::unordered_map<unsigned long long, size_t>::iterator m_it;
+    for (m_it = shot_lookup.begin(); m_it != shot_lookup.end(); m_it++) {
+	if (o.shot_lookup.find(m_it->first) == o.shot_lookup.end()) {
+	    // Unmatched shot
+	    ret = false;
+	}
+    }
+    for (m_it = o.shot_lookup.begin(); m_it != o.shot_lookup.end(); m_it++) {
+	if (shot_lookup.find(m_it->first) == shot_lookup.end()) {
+	    // Unmatched shot
+	    ret = false;
+	}
+    }
+
+    if (!ret) {
+	std::cerr << "Warning - unmatched shots found.  Doing comparison only of common shots.\n";
+    }
+
     //
     // 2.  For each common shot, compare its results.  The final
     // equal/not-equal decision is based on the individual shot comparisons -
     // if they all match within tolerance, and all shots are in both sets, then
     // the sets are the same (return true).  Otherwise return false.
+    for (size_t i = 0; i < shots.size(); i++) {
+	m_it = o.shot_lookup.find(shots[i].ray_hash());
+	if (m_it == o.shot_lookup.end())
+	    continue;
+	bool scmp = shots[i].cmp(o.shots[m_it->second], tol);
+	if (!scmp)
+	    ret = false;
+    }
 
-    return false;
+    return ret;
 }
 
 void

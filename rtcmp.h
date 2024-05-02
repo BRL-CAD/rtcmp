@@ -27,6 +27,7 @@
 #define RTCMP_H
 
 #include <string>
+#include <unordered_map>
 #include "json.hpp"
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
@@ -82,9 +83,12 @@ class run_shot {
     public:
 	bool cmp(class run_shot &o, double tol);
 	void print();
+	unsigned long long ray_hash();
 	point_t ray_pt;
 	vect_t ray_dir;
 	std::vector<run_part> partitions;
+    private:
+	unsigned long long rhash = 0;
 };
 
 class run_shotset {
@@ -93,6 +97,7 @@ class run_shotset {
 	void print();
 	std::string data_version;
 	std::string engine;
+	std::unordered_map<unsigned long long, size_t> shot_lookup;
 	std::vector<run_shot> shots;
 };
 
