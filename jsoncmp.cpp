@@ -202,6 +202,28 @@ do_diff_run(const char *prefix, int argc, char **argv, int nthreads,
     return NULL;
 }
 
+bool
+part::cmp(class part &o)
+{
+    if (o.region != region)
+	return false;
+
+    // TODO - numerical comparisons - probably want to allow for a
+    // tolerance specification.  Theoretically, if we do the number
+    // reading and writing correctly, we can compare the full floating
+    // point numbers here (see the work we did for NIRT about that -
+    // will probably want to pre-convert data using those techniques
+    // to strings before packing it off to json.hpp).  However, depending
+    // on the use case, we may be wanting to spot larger differences
+    // rather than tiny changes.
+    return false;
+}
+
+void
+part::print()
+{
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
