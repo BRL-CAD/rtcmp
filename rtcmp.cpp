@@ -44,7 +44,8 @@ main(int argc, char **argv)
     bool performance_test = false;
     bool diff_test = false;
     bool compare_json = false;
-    std::string json_ofile;
+    double diff_tol = 0;
+    std::string json_ofile("shots.json");
     std::vector<std::string> nonopts;
 
     cxxopts::Options options(argv[0], "A program to evaluate raytracer performance and correctness\n");
@@ -58,10 +59,11 @@ main(int argc, char **argv)
 	    ("n,num-cpus",         "Number of CPUs to use for performance runs - >1 means a parallel run, 1 is a serial run, 0 (default) means use maximize CPU usage", cxxopts::value<int>(ncpus))
 	    ("enable-tie",         "Use the Triangle Intersection Engine in librt", cxxopts::value<bool>(use_tie))
 	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(dry_run))
-	    ("t,test-performance", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
-	    ("d,test-differences", "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
+	    ("p,performance-test", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
+	    ("d,difference-test",  "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
+	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(diff_tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
-	    ("output-json",        "Compare two JSON results files", cxxopts::value<std::string>(json_ofile))
+	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(json_ofile))
 	    ("h,help",             "Print help")
 	    ;
 	auto result = options.parse(argc, argv);
@@ -105,7 +107,7 @@ main(int argc, char **argv)
     /* librt */
     if (!enable_tie) {
 	if (diff_test) {
-	    do_diff_run("rt", 2, (const char **)av, ncpus, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor);
+	    do_diff_run("rt", 2, (const char **)av, ncpus, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, json_ofile);
 	}
 	if (performance_test) {
 	    do_perf_run("rt", 2, (const char **)av, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);

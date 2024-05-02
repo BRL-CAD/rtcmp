@@ -26,6 +26,7 @@
 #ifndef RTCMP_H
 #define RTCMP_H
 
+#include <string>
 #include "json.hpp"
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
@@ -52,13 +53,14 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus,
  * raytracing results.  This will produce a sizable output file, and
  * may run rather slowly since shotline intersection data is being captured
  * for output. */
-nlohmann::json *
+void
 do_diff_run(const char *prefix, int argc, const char **argv, int ncpus,
 	void*(*constructor)(const char *, int, const char**, nlohmann::json *),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
-	int(*destructor)(void *));
+	int(*destructor)(void *),
+	std::string &json_ofile);
 
 
 /* Structures and functions for comparing outputs between raytrace runs */

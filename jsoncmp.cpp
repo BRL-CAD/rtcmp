@@ -145,13 +145,14 @@ compare_shots(const char *file1, const char *file2)
  * TODO:
  *	* Shoot on a grid set instead of a single ray.
  */
-nlohmann::json *
+void
 do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
 	void *(*constructor) (const char *, int, const char **, nlohmann::json *),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),
-	int (*destructor) (void *))
+	int (*destructor) (void *),
+	std::string &json_ofile)
 {
     clock_t cstart, cend;
     struct part **p;
@@ -178,7 +179,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
 
     inst = constructor(*argv, argc-1, argv+1, &jshots);
     if (inst == NULL) {
-	return NULL;
+	return;
     }
 
     /* first with a legit radius gets to define the bb and sph */
@@ -206,32 +207,17 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
 	rt_raybundle_maker(ray+j*NUMRAYS,radius,avec,bvec,100,NUMRAYS/100);
     }
 
-    /* performance run */
-    gettimeofday(&start,NULL); cstart = clock();
-
     /* actually shoot all the pre-defined rays */
     for(int i=0;i<NUMRAYS;++i)
 	shoot(inst,&ray[i]);
-
-    cend = clock(); gettimeofday(&end,NULL);
-    /* end of performance run */
 
     /* clean up */
     bu_free(ray, "ray space");
     destructor(inst);
 
-    /* fill in the perfomrance data for the bundle */
-#define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
-    //ret->t = SEC(end) - SEC(start);
-    //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
-
-    std::ofstream jfile("shotlines.json");
+    std::ofstream jfile(json_ofile);
     jfile << std::setw(2) << jshots << "\n";
     jfile.close();
-
-    parse_shots_file("shotlines.json");
-
-    return NULL;
 }
 
 bool
