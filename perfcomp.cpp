@@ -32,9 +32,6 @@
 #include <fstream>
 
 #include "rtcmp.h"
-#include "perfcomp.h"
-
-#include "json.hpp"
 
 #define NUMRAYSPERVIEW NUMRAYS/NUMVIEWS
 

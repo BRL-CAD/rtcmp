@@ -89,6 +89,26 @@ struct retpack_s {
 
 void parse_shots_file(const char *fname);
 
+void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
+	void*(*constructor)(char *, int, char**),
+	int(*getbox)(void *, point_t *, point_t *),
+	double(*getsize)(void*),
+	void (*shoot)(void*, struct xray *),
+	int(*destructor)(void *));
+
+nlohmann::json *
+do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
+	void*(*constructor)(char *, int, char**, nlohmann::json *),
+	int(*getbox)(void *, point_t *, point_t *),
+	double(*getsize)(void*),
+	void (*shoot)(void*, struct xray *),
+	int(*destructor)(void *));
+
+
+void compare_shots(const char *r1, const char *r2);
+
+
+
 #endif
 
 

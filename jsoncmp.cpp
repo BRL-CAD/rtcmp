@@ -3,10 +3,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-
-#include "bu.h"
-#include "raytrace.h"
-#include "accucheck.h"
+#include "rtcmp.h"
 
 void
 parse_pt(const nlohmann::json &sdata)
@@ -69,7 +66,7 @@ parse_partitions(const nlohmann::json &sdata)
     for(nlohmann::json::const_iterator it = sdata.begin(); it != sdata.end(); ++it) {
 	const nlohmann::json &ssdata = *it;
 	parse_partition_data_entry(ssdata);
-    }	
+    }
 }
 
 void

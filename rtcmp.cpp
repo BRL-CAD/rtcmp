@@ -27,13 +27,12 @@
 
 #include "cxxopts.hpp"
 
-#include "accucheck.h"
-#include "perfcomp.h"
-
 #include "dry/dry.h"
 #include "rt/rt_acc.h"
 #include "rt/rt_perf.h"
 #include "tie/tie.h"
+
+#include "rtcmp.h"
 
 int
 main(int argc, char **argv)
