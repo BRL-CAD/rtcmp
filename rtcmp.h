@@ -99,7 +99,7 @@ class run_shotset {
 run_shotset *
 parse_shots_file(const char *fname);
 
-void compare_shots(const char *file1, const char *file2);
+bool compare_shots(const char *file1, const char *file2, double tol);
 
 #endif // RTCMP_H
 

@@ -133,7 +133,7 @@ parse_shots_file(const char *fname)
 }
 
 bool
-compare_shots(const char *file1, const char *file2)
+compare_shots(const char *file1, const char *file2, double tol)
 {
     run_shotset *s1 = parse_shots_file(file1);
     run_shotset *s2 = parse_shots_file(file2);
@@ -141,7 +141,7 @@ compare_shots(const char *file1, const char *file2)
     if (!s1 || !s2)
 	return false;
 
-    bool ret = s1->cmp(*s2);
+    bool ret = s1->cmp(*s2, tol);
     delete s1;
     delete s2;
     return ret;
@@ -245,9 +245,9 @@ run_part::cmp(class run_part &o, double tol)
 	return false;
     if (!VNEAR_EQUAL(o.out, out, tol))
 	return false;
-    if (!VNEAR_EQUAL(o.in_norm, in_norm, tol))
+    if (!VNEAR_EQUAL(o.innorm, innorm, tol))
 	return false;
-    if (!VNEAR_EQUAL(o.out_norm, out_norm, tol))
+    if (!VNEAR_EQUAL(o.outnorm, outnorm, tol))
 	return false;
 
     // Looks good
@@ -271,20 +271,18 @@ run_shot::cmp(class run_shot &o, double tol)
     if (o.partitions.size() != partitions.size())
 	ret = false;
 
-    // 2.  For all partitions along the shot, compare them to see if there
-    // are any discrepancies.  This is where it gets interesting - to provide
-    // the most useful reporting on differences, we may want to use two queues
-    // and pop partitions off of each one - if we get an unmatched partition in
-    // one of them, we can take the one with the smallest in_hit distance and
-    // store it then pop the next one from that queue to see if it matches the
-    // unmatched segment from the other queue that failed the test.  This would
-    // (for example) allow reporting of one segment being inserted into a
-    // shotline partition list due to a change in grazing hit behavior, rather
-    // than cascading the "failed" status down the rest of the shotline.  The
-    // condition for stopping the popping process is when the new candidate
-    // partition has an in_dist that is further out than the in_dist of the
-    // one we are trying to match - at that point, the original target is popped
-    // from the other queue and we try to match the new partition from there.
+    // 2.  For all partitions along the shot, compare them to see if there are
+    // any discrepancies.  This is where it gets interesting - to provide the
+    // most useful reporting on differences, we may want to use two queues and
+    // pop partitions off of each one - if we get a length delta, one of them,
+    // we can take the one with the smallest in_hit distance (or if those are
+    // the same, out_hit distance) and store it.  We then pop the next one from
+    // that queue and continue as before.
+    //
+    // This will (for example) allow reporting of one segment being inserted
+    // into a shotline partition list due to a change in grazing hit behavior,
+    // rather than cascading the "failed" status of mismatched partitions down
+    // the rest of the shotline.
     std::queue<size_t> oq, q;
     for (size_t i = o.partitions.size() - 1; i >= 0; i--)
 	oq.push(i);
@@ -298,7 +296,7 @@ run_shot::cmp(class run_shot &o, double tol)
     bool do_opop = true;
     bool do_cpop = true;
 
-    while (!oq.empty() && !q.empty(), do_opop, do_cpop) {
+    while (!oq.empty() && !q.empty()) {
 	if (do_opop) {
 	    opind = oq.front();
 	    oq.pop();
@@ -311,26 +309,26 @@ run_shot::cmp(class run_shot &o, double tol)
 	do_cpop = true;
 	run_part &opart = o.partitions[opind];
 	run_part &cpart = partitions[pind];
-	if (!opart.cmp(cpart)) {
+	if (!opart.cmp(cpart, tol)) {
 	    // We have a difference.  See if we can decide based on distances
 	    // which one to add to its unmatched vector.
-	    if (!NEAR_ZERO(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
+	    if (!NEAR_EQUAL(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
 		if (opart.in_dist < cpart.in_dist) {
 		    o_unmatched.push_back(opind);
 		    do_cpop = false;
 		    continue;
 		} else {
-		    unmatched.push_back(pind);
+		    c_unmatched.push_back(pind);
 		    do_opop = false;
 		    continue;
 		}
-	    } else if (!NEAR_ZERO(opart.out_dist, cpart.out_dist, SMALL_FASTF)) {
+	    } else if (!NEAR_EQUAL(opart.out_dist, cpart.out_dist, SMALL_FASTF)) {
 		if (opart.out_dist < cpart.out_dist) {
 		    o_unmatched.push_back(opind);
 		    do_cpop = false;
 		    continue;
 		} else {
-		    unmatched.push_back(pind);
+		    c_unmatched.push_back(pind);
 		    do_opop = false;
 		    continue;
 		}
@@ -339,7 +337,7 @@ run_shot::cmp(class run_shot &o, double tol)
 		// than the partition length itself, those won't have
 		// implications for getting us "out of sync" in subsequent
 		// diffing.  Record both as unmatched and proceed.
-		unmatched.push_back(pind);
+		c_unmatched.push_back(pind);
 		o_unmatched.push_back(opind);
 	    }
 	}
@@ -351,7 +349,7 @@ run_shot::cmp(class run_shot &o, double tol)
 	oq.pop();
     }
     while (!q.empty()) {
-	unmatched.push_back(oq.front());
+	c_unmatched.push_back(oq.front());
 	q.pop();
     }
 
@@ -375,6 +373,7 @@ run_shot::cmp(class run_shot &o, double tol)
     // graphically "pick" a scene object corresponding to a problematic ray and get
     // its exact shotline info via name lookup.
 
+    return (!o_unmatched.size() && !c_unmatched.size());
 }
 
 void
@@ -401,6 +400,7 @@ run_shotset::cmp(class run_shotset &o, double tol)
     // if they all match within tolerance, and all shots are in both sets, then
     // the sets are the same (return true).  Otherwise return false.
 
+    return false;
 }
 
 void
