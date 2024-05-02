@@ -41,8 +41,8 @@
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -
  * instead, run time is measured by the caller */
-void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
-	void*(*constructor)(char *, int, char**),
+void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus,
+	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
@@ -53,8 +53,8 @@ void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
  * may run rather slowly since shotline intersection data is being captured
  * for output. */
 nlohmann::json *
-do_diff_run(const char *prefix, int argc, char **argv, int ncpus,
-	void*(*constructor)(char *, int, char**, nlohmann::json *),
+do_diff_run(const char *prefix, int argc, const char **argv, int ncpus,
+	void*(*constructor)(const char *, int, const char**, nlohmann::json *),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),

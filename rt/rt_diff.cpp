@@ -93,7 +93,7 @@ miss(struct application * a)
 
 /* Note - output data is stored in the json container */
 void
-rt_acc_shoot(void *g, struct xray * ray)
+rt_diff_shoot(void *g, struct xray * ray)
 {
     struct application *a = (struct application *)g;
     struct app_json *j = (struct app_json *)a->a_uptr;
@@ -120,14 +120,14 @@ rt_acc_shoot(void *g, struct xray * ray)
 }
 
 double
-rt_acc_getsize(void *g)
+rt_diff_getsize(void *g)
 {
     struct application *a = (struct application *)g;
     return a->a_rt_i->rti_radius;
 }
 
 int
-rt_acc_getbox(void *g, point_t * min, point_t * max)
+rt_diff_getbox(void *g, point_t * min, point_t * max)
 {
     struct application *a = (struct application *)g;
     VMOVE(*min, a->a_rt_i->mdl_min);
@@ -136,7 +136,7 @@ rt_acc_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-rt_acc_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
+rt_diff_constructor(const char *file, int numreg, const char **regs, nlohmann::json *j)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -176,7 +176,7 @@ rt_acc_constructor(char *file, int numreg, char **regs, nlohmann::json *j)
 }
 
 int
-rt_acc_destructor(void *g)
+rt_diff_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     struct app_json *jc = (struct app_json *)a->a_uptr;

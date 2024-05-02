@@ -59,7 +59,7 @@ main(int argc, char **argv)
 	    ("enable-tie",         "Use the Triangle Intersection Engine in librt", cxxopts::value<bool>(use_tie))
 	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(dry_run))
 	    ("t,test-performance", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
-	    ("a,test-differences", "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
+	    ("d,test-differences", "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
 	    ("output-json",        "Compare two JSON results files", cxxopts::value<std::string>(json_ofile))
 	    ("h,help",             "Print help")
@@ -91,21 +91,24 @@ main(int argc, char **argv)
     }
 
     /* Dry run (no shotlining, establishes overhead costs - diff run is a no-op) */
+    const char *av[3] = {NULL};
+    av[0] = nonopts[0].c_str();
+    av[1] = nonopts[1].c_str();
     if (dry_run) {
 	if (diff_test) {
 	    std::cerr << "Dry-run method does not support generating JSON output for diff comparisons\n";
 	    return -1;
 	}
-	do_perf_run("dry", argc, argv, ncpus, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+	do_perf_run("dry", 2, (const char **)av, ncpus, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
 
     /* librt */
     if (!enable_tie) {
 	if (diff_test) {
-	    do_diff_run("rt", argc, argv, ncpus, rt_acc_constructor, rt_acc_getbox, rt_acc_getsize, rt_acc_shoot, rt_acc_destructor);
+	    do_diff_run("rt", 2, (const char **)av, ncpus, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor);
 	}
 	if (performance_test) {
-	    do_perf_run("rt", argc, argv, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	    do_perf_run("rt", 2, (const char **)av, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
 	}
     }
 

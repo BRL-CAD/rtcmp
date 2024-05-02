@@ -146,8 +146,8 @@ compare_shots(const char *file1, const char *file2)
  *	* Shoot on a grid set instead of a single ray.
  */
 nlohmann::json *
-do_diff_run(const char *prefix, int argc, char **argv, int nthreads,
-	void *(*constructor) (char *, int, char **, nlohmann::json *),
+do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
+	void *(*constructor) (const char *, int, const char **, nlohmann::json *),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),

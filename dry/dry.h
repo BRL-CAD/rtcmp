@@ -35,7 +35,7 @@
 extern "C" void     dry_shoot(void *geom, struct xray * ray);
 extern "C" double   dry_getsize(void *g);
 extern "C" int      dry_getbox(void *g, point_t * min, point_t * max);
-extern "C" void    *dry_constructor(char *file, int numreg, char **regs);
+extern "C" void    *dry_constructor(const char *file, int numreg, const char **regs);
 extern "C" int      dry_destructor(void *);
 
 #endif

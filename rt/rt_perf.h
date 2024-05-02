@@ -31,7 +31,7 @@
 void            rt_perf_shoot(void *geom, struct xray * ray);
 double          rt_perf_getsize(void *g);
 int             rt_perf_getbox(void *g, point_t * min, point_t * max);
-void           *rt_perf_constructor(char*, int, char**);
+void           *rt_perf_constructor(const char*, int, const char**);
 int             rt_perf_destructor(void *);
 
 #endif

@@ -60,7 +60,7 @@ dry_getbox(void *UNUSED(g), point_t *UNUSED(min), point_t *UNUSED(max))
 }
 
 void           *
-dry_constructor(char *UNUSED(file), int UNUSED(numreg), char **UNUSED(regs))
+dry_constructor(const char *UNUSED(file), int UNUSED(numreg), const char **UNUSED(regs))
 {
     return (void *) 1;
 }

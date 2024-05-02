@@ -87,7 +87,7 @@ rt_perf_getbox(void *g, point_t * min, point_t * max)
 }
 
 void           *
-rt_perf_constructor(char *file, int numreg, char **regs)
+rt_perf_constructor(const char *file, int numreg, const char **regs)
 {
     struct application *a;
     char            descr[BUFSIZ];
