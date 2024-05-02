@@ -44,7 +44,7 @@ main(int argc, char **argv)
     bool performance_test = false;
     bool diff_test = false;
     bool compare_json = false;
-    double diff_tol = 0;
+    double diff_tol = SMALL_FASTF;
     std::string json_ofile("shots.json");
     std::vector<std::string> nonopts;
 
@@ -90,6 +90,12 @@ main(int argc, char **argv)
 	    std::cerr << "Error:  need to specify a geometry file and object\n";
 	}
 	return -1;
+    }
+
+    if (compare_json) {
+	bool cmp = compare_shots(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol);
+	std::cerr << "cmp: " << cmp << "\n";
+	return 0;
     }
 
     /* Dry run (no shotlining, establishes overhead costs - diff run is a no-op) */

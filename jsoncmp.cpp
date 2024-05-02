@@ -285,29 +285,19 @@ run_shot::cmp(class run_shot &o, double tol)
     // rather than cascading the "failed" status of mismatched partitions down
     // the rest of the shotline.
     std::queue<size_t> oq, q;
-    for (size_t i = o.partitions.size() - 1; i >= 0; i--)
+    for (size_t i = 0; i < o.partitions.size(); i++)
 	oq.push(i);
-    for (size_t i = partitions.size() - 1; i >= 0; i--)
+    for (size_t i = 0; i < partitions.size(); i++)
 	q.push(i);
 
     std::vector<size_t> o_unmatched;
     std::vector<size_t> c_unmatched;
     size_t opind = oq.front();
     size_t pind = q.front();
-    bool do_opop = true;
-    bool do_cpop = true;
 
     while (!oq.empty() && !q.empty()) {
-	if (do_opop) {
-	    opind = oq.front();
-	    oq.pop();
-	}
-	if (do_cpop) {
-	    pind = q.front();
-	    q.pop();
-	}
-	do_opop = true;
-	do_cpop = true;
+	opind = oq.front();
+	pind = q.front();
 	run_part &opart = o.partitions[opind];
 	run_part &cpart = partitions[pind];
 	if (!opart.cmp(cpart, tol)) {
@@ -316,21 +306,21 @@ run_shot::cmp(class run_shot &o, double tol)
 	    if (!NEAR_EQUAL(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
 		if (opart.in_dist < cpart.in_dist) {
 		    o_unmatched.push_back(opind);
-		    do_cpop = false;
+		    oq.pop();
 		    continue;
 		} else {
 		    c_unmatched.push_back(pind);
-		    do_opop = false;
+		    q.pop();
 		    continue;
 		}
 	    } else if (!NEAR_EQUAL(opart.out_dist, cpart.out_dist, SMALL_FASTF)) {
 		if (opart.out_dist < cpart.out_dist) {
 		    o_unmatched.push_back(opind);
-		    do_cpop = false;
+		    oq.pop();
 		    continue;
 		} else {
 		    c_unmatched.push_back(pind);
-		    do_opop = false;
+		    q.pop();
 		    continue;
 		}
 	    } else {
@@ -339,9 +329,15 @@ run_shot::cmp(class run_shot &o, double tol)
 		// implications for getting us "out of sync" in subsequent
 		// diffing.  Record both as unmatched and proceed.
 		c_unmatched.push_back(pind);
+		q.pop();
 		o_unmatched.push_back(opind);
+		oq.pop();
 	    }
 	}
+
+	// We're good, pop both of them
+	q.pop();
+	oq.pop();
     }
 
     // At this point, if either queue has anything left, it is unmatched
@@ -350,7 +346,7 @@ run_shot::cmp(class run_shot &o, double tol)
 	oq.pop();
     }
     while (!q.empty()) {
-	c_unmatched.push_back(oq.front());
+	c_unmatched.push_back(q.front());
 	q.pop();
     }
 
@@ -377,6 +373,11 @@ run_shot::cmp(class run_shot &o, double tol)
     // If we're not already false, see if we saw any differences
     if (ret)
 	ret = (!o_unmatched.size() && !c_unmatched.size());
+
+    if (o.partitions.size() || partitions.size()) {
+	std::cerr << "o_unmatched cnt: " << o_unmatched.size() << "\n";
+	std::cerr << "c_unmatched cnt: " << c_unmatched.size() << "\n";
+    }
 
     return ret;
 }
