@@ -84,6 +84,8 @@ class run_part {
 
 class run_shot {
     public:
+	bool cmp(class run_shot &o);
+	void print();
 	point_t ray_pt;
 	vect_t ray_dir;
 	std::vector<run_part> partitions;
@@ -91,6 +93,8 @@ class run_shot {
 
 class run_shotset {
     public:
+	bool cmp(class run_shotset &o);
+	void print();
 	std::string data_version;
 	std::string engine;
 	std::vector<run_shot> shots;
