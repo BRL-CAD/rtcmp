@@ -135,10 +135,10 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads,
     bu_free(ray, "ray space");
     destructor(inst);
 
-    /* fill in the perfomrance data for the bundle */
+    /* Report times */
 #define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
-    //ret->t = SEC(end) - SEC(start);
-    //ret->c = (double)(cend-cstart)/(double)CLOCKS_PER_SEC;
+    std::cout << "Wall clock time: " << SEC(end) - SEC(start) << "\n";
+    std::cout << "CPU time       : " << (double)(cend-cstart)/(double)CLOCKS_PER_SEC << "\n";
 }
 
 
