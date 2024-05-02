@@ -35,16 +35,7 @@
 
 #define NUMRAYSPERVIEW NUMRAYS/NUMVIEWS
 
-void
-showpart(struct part *p)
-{
-    while(p) {
-	printf("(%.2f)%s  ", p->depth, p->region);
-	p = p->next;
-    }
-    return;
-}
-
+#if 0
 /*
  * compare two partition lists. Return the RMS of deviation (both indist and
  * outdist). If the regions don't match up, return a negative number
@@ -66,6 +57,7 @@ cmppartl(struct part *p1, struct part *p2)
 	return -1;
     return sqrt(rms);
 }
+#endif
 
 /*
  * TODO:

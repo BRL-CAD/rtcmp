@@ -26,9 +26,7 @@ set(rtcmp_SRCS
   rt/rt_perf.cpp
   jsoncmp.cpp
   #tie/tie.c
-  partm.cpp
   perfcomp.cpp
-  #rt/rt.c
   rtcmp.cpp
   )
 

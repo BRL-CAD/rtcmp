@@ -26,69 +26,21 @@
 #ifndef RTCMP_H
 #define RTCMP_H
 
-/* brlcad shtuff */
-#ifndef VMATH_H
-# include <stdio.h>
-# include <math.h>
-# include <brlcad/vmath.h>
-# include <brlcad/bu.h>
-# include <brlcad/bn.h>
-# include <brlcad/raytrace.h>
-#endif
-
 #include "json.hpp"
+#include <brlcad/vmath.h>
+#include <brlcad/bu.h>
+#include <brlcad/bn.h>
+#include <brlcad/raytrace.h>
 
-struct app_json {
-    nlohmann::json *jshots;
-    nlohmann::json *shotparts;
-};
-
-
+/* Defines used when setting up shotline inputs */
 #define NUMRAYS		((int)1e5)		/* this is PER VIEW */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
 #define NUMTRAYS	(NUMRAYS*NUMVIEWS)	/* total rays shot */
 
-#define PANIC(x) printf(x),exit(-1)
-
-/* no. mine. */
-#ifdef NAMELEN
-# undef NAMELEN
-#endif
-
-/* maximum size of a region/part name */
-#define NAMELEN 128
-
-/* local form of partition list */
-struct part {
-    struct part *next;	/* singly linked list */
-    char region[NAMELEN];	/* human readable region name */
-    double in_dist;
-    point_t in;
-    vect_t innorm;
-    double out_dist;
-    point_t out;
-    vect_t outnorm;
-    double depth;
-    float obliquity;	/* unused */
-    float curvature;	/* unused */
-};
-
-struct part *get_part();		/* 'allocate' a part */
-int free_part (struct part *);		/* 'free' part, puts back in memory pool (loses 'tail') */
-int free_part_r (struct part *);	/* recursive free */
-int end_part();				/* clean up part memory manager */
-
-void showpart(struct part *p);
-double cmppartl(struct part *p1, struct part *p2);
-
-struct retpack_s {
-    double t;			/* wall time */
-    double c;			/* cpu clock time */
-    struct part *p[NUMVIEWS];	/* ordered set of accuracy partition lists */
-};
-
-void parse_shots_file(const char *fname);
-
+/* Do a performance testing run - the purpose of this run is to
+ * compare the relative performance of two raytracers (or the impact
+ * of changes to the same raytracer) so outputs are not captured -
+ * instead, run time is measured by the caller */
 void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
 	void*(*constructor)(char *, int, char**),
 	int(*getbox)(void *, point_t *, point_t *),
@@ -96,8 +48,12 @@ void do_perf_run(const char *prefix, int argc, char **argv, int ncpus,
 	void (*shoot)(void*, struct xray *),
 	int(*destructor)(void *));
 
+/* Do a run to generate a file used to identify differences between
+ * raytracing results.  This will produce a sizable output file, and
+ * may run rather slowly since shotline intersection data is being captured
+ * for output. */
 nlohmann::json *
-do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
+do_diff_run(const char *prefix, int argc, char **argv, int ncpus,
 	void*(*constructor)(char *, int, char**, nlohmann::json *),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
@@ -105,19 +61,40 @@ do_accu_run(const char *prefix, int argc, char **argv, int ncpus,
 	int(*destructor)(void *));
 
 
-void compare_shots(const char *r1, const char *r2);
+/* Structures and functions for comparing outputs between raytrace runs */
 
+struct app_json {
+    nlohmann::json *jshots;
+    nlohmann::json *shotparts;
+};
 
+class part {
+    public:
+	bool cmp(class part &o);
+	void print();
 
-#endif
+	std::string region;
+	double in_dist;
+	point_t in;
+	vect_t innorm;
+	double out_dist;
+	point_t out;
+	vect_t outnorm;
+	double depth;
+};
 
+void parse_shots_file(const char *fname);
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */
+void compare_shots(const char *file1, const char *file2);
+
+#endif // RTCMP_H
+
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
+

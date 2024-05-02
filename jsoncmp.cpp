@@ -114,7 +114,7 @@ parse_shots_file(const char *fname)
  *	* Shoot on a grid set instead of a single ray.
  */
 nlohmann::json *
-do_accu_run(const char *prefix, int argc, char **argv, int nthreads,
+do_diff_run(const char *prefix, int argc, char **argv, int nthreads,
 	void *(*constructor) (char *, int, char **, nlohmann::json *),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),

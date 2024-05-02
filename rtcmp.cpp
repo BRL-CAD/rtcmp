@@ -42,7 +42,7 @@ main(int argc, char **argv)
     bool dry_run = false;
     bool enable_tie = false;
     bool performance_test = false;
-    bool accuracy_test = false;
+    bool diff_test = false;
     bool compare_json = false;
     std::string json_ofile;
     std::vector<std::string> nonopts;
@@ -59,7 +59,7 @@ main(int argc, char **argv)
 	    ("enable-tie",         "Use the Triangle Intersection Engine in librt", cxxopts::value<bool>(use_tie))
 	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(dry_run))
 	    ("t,test-performance", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
-	    ("a,test-accuracy",    "Run tests to generate input files for accuracy comparisons", cxxopts::value<bool>(accuracy_test))
+	    ("a,test-differences", "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
 	    ("output-json",        "Compare two JSON results files", cxxopts::value<std::string>(json_ofile))
 	    ("h,help",             "Print help")
@@ -90,10 +90,10 @@ main(int argc, char **argv)
 	return -1;
     }
 
-    /* Dry run (no shotlining, establishes overhead costs - accuracy run is a no-op) */
+    /* Dry run (no shotlining, establishes overhead costs - diff run is a no-op) */
     if (dry_run) {
-	if (accuracy_test) {
-	    std::cerr << "Dry-run method does not support generating JSON output for accuracy comparisons\n";
+	if (diff_test) {
+	    std::cerr << "Dry-run method does not support generating JSON output for diff comparisons\n";
 	    return -1;
 	}
 	do_perf_run("dry", argc, argv, ncpus, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
@@ -101,8 +101,8 @@ main(int argc, char **argv)
 
     /* librt */
     if (!enable_tie) {
-	if (accuracy_test) {
-	    do_accu_run("rt", argc, argv, ncpus, rt_acc_constructor, rt_acc_getbox, rt_acc_getsize, rt_acc_shoot, rt_acc_destructor);
+	if (diff_test) {
+	    do_diff_run("rt", argc, argv, ncpus, rt_acc_constructor, rt_acc_getbox, rt_acc_getsize, rt_acc_shoot, rt_acc_destructor);
 	}
 	if (performance_test) {
 	    do_perf_run("rt", argc, argv, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
@@ -112,8 +112,8 @@ main(int argc, char **argv)
 #if 0
     /* TIE */
     if (enable_tie) {
-	if (accuracy_test) {
-	    do_perf_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
+	if (diff_test) {
+	    do_diff_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
 	}
 	if (performance_test) {
 	    do_perf_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
@@ -124,12 +124,12 @@ main(int argc, char **argv)
     return 0;
 }
 
-/*
- * Local Variables:
- * tab-width: 8
- * mode: C
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */
+// Local Variables:
+// tab-width: 8
+// mode: C++
+// c-basic-offset: 4
+// indent-tabs-mode: t
+// c-file-style: "stroustrup"
+// End:
+// ex: shiftwidth=4 tabstop=8
+

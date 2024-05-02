@@ -30,14 +30,13 @@
 #include "dry/dry.h"
 
 #define SET()  \
-    strncpy(p.region,"/some/nifty/little/part.r",NAMELEN); \
+    p.region = std::string("/some/nifty/little/part.r"); \
     VSET(p.in,0,0,0); \
     VSET(p.out,0,0,0); \
     VSET(p.innorm,0,0,0); \
     VSET(p.outnorm,0,0,0); \
     p.in_dist = 0; \
-    p.out_dist = 0; \
-    bu_free(p.region, "region");
+    p.out_dist = 0;
 
 void
 dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
