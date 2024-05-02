@@ -68,9 +68,9 @@ struct app_json {
     nlohmann::json *shotparts;
 };
 
-class part {
+class run_part {
     public:
-	bool cmp(class part &o);
+	bool cmp(class run_part &o);
 	void print();
 
 	std::string region;
@@ -80,10 +80,24 @@ class part {
 	double out_dist;
 	point_t out;
 	vect_t outnorm;
-	double depth;
 };
 
-void parse_shots_file(const char *fname);
+class run_shot {
+    public:
+	point_t ray_pt;
+	vect_t ray_dir;
+	std::vector<run_part> partitions;
+};
+
+class run_shotset {
+    public:
+	std::string data_version;
+	std::string engine;
+	std::vector<run_shot> shots;
+};
+
+run_shotset *
+parse_shots_file(const char *fname);
 
 void compare_shots(const char *file1, const char *file2);
 

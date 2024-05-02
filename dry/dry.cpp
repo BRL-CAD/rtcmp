@@ -42,7 +42,7 @@ void
 dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
 {
     for (int i = 0; i < 4; i++) {
-    struct part p;
+    struct run_part p;
     SET();
     }
 }

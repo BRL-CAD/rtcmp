@@ -8,125 +8,141 @@
 
 #include "rtcmp.h"
 
+double
+s2d(std::string s)
+{
+    double d;
+    std::stringstream ss(s);
+    size_t prec = std::numeric_limits<double>::max_digits10;
+    ss >> std::setprecision(prec) >> std::fixed >> d;
+    return d;
+}
+
 void
 parse_pt(point_t *p, const nlohmann::json &sdata)
 {
-    size_t prec = std::numeric_limits<double>::max_digits10;
     if (sdata.contains("X")) {
 	std::string s(sdata["X"]);
-	std::stringstream ss(s);
-	ss >> std::setprecision(prec) >> std::fixed >> (*p)[X];
-	std::cout << "	X:" << (*p)[X] << "\n";
+	(*p)[X] = s2d(s);
     }
     if (sdata.contains("Y")) {
 	std::string s(sdata["Y"]);
-	std::stringstream ss(s);
-	ss >> std::setprecision(prec) >> std::fixed >> (*p)[Y];
-	std::cout << "	Y:" << (*p)[Y] << "\n";
+	(*p)[Y] = s2d(s);
     }
     if (sdata.contains("Z")) {
 	std::string s(sdata["Z"]);
-	std::stringstream ss(s);
-	ss >> std::setprecision(prec) >> std::fixed >> (*p)[Z];
-	std::cout << "	Z:" << (*p)[Z] << "\n";
+	(*p)[Z] = s2d(s);
     }
 }
 
 void
-parse_partition_data_entry(const nlohmann::json &sdata)
+parse_partition_data_entry(run_part &rp, const nlohmann::json &sdata)
 {
     if (sdata.contains("region")) {
-	std::cout << "partition region: " << sdata["region"] <<  "\n";
+	rp.region = sdata["region"];
     }
 
     if (sdata.contains("in_dist")) {
-	std::cout << "partition in_dist: " << sdata["in_dist"] <<  "\n";
+	std::string s(sdata["in_dist"]);
+	rp.in_dist = s2d(s);
     }
 
     if (sdata.contains("out_dist")) {
-	std::cout << "partition out_dist: " << sdata["out_dist"] <<  "\n";
+	std::string s(sdata["out_dist"]);
+	rp.out_dist = s2d(s);
     }
 
-    point_t p;
-
     if (sdata.contains("in_pt")) {
-	std::cout << "partition in_pt:\n";
 	const nlohmann::json &ssdata = sdata["in_pt"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rp.in, ssdata);
     }
 
     if (sdata.contains("out_pt")) {
-	std::cout << "partition out_pt:\n";
 	const nlohmann::json &ssdata = sdata["out_pt"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rp.out, ssdata);
     }
 
     if (sdata.contains("in_norm")) {
-	std::cout << "partition in_norm:\n";
 	const nlohmann::json &ssdata = sdata["in_norm"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rp.innorm, ssdata);
     }
 
     if (sdata.contains("out_norm")) {
-	std::cout << "partition out_norm:\n";
 	const nlohmann::json &ssdata = sdata["out_norm"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rp.outnorm, ssdata);
     }
 
 }
 
 void
-parse_partitions(const nlohmann::json &sdata)
+parse_partitions(run_shot &rs, const nlohmann::json &sdata)
 {
     for(nlohmann::json::const_iterator it = sdata.begin(); it != sdata.end(); ++it) {
 	const nlohmann::json &ssdata = *it;
-	parse_partition_data_entry(ssdata);
+	run_part rp;
+	parse_partition_data_entry(rp, ssdata);
+	rs.partitions.push_back(rp);
     }
 }
 
 void
-parse_shots(const nlohmann::json &sdata)
+parse_shot(run_shot &rs, const nlohmann::json &sdata)
 {
     point_t p;
     if (sdata.contains("ray_pt")) {
-	std::cout << "ray_pt:\n";
 	const nlohmann::json &ssdata = sdata["ray_pt"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rs.ray_pt, ssdata);
     }
 
     if (sdata.contains("ray_dir")) {
-	std::cout << "ray_dir:\n";
 	const nlohmann::json &ssdata = sdata["ray_dir"];
-	parse_pt(&p, ssdata);
+	parse_pt(&rs.ray_dir, ssdata);
     }
 
     if (sdata.contains("partitions")) {
 	const nlohmann::json &ssdata = sdata["partitions"];
-	parse_partitions(ssdata);
+	parse_partitions(rs, ssdata);
     }
 }
 
-void
+run_shotset *
 parse_shots_file(const char *fname)
 {
     std::ifstream f(fname);
+    if (!f.is_open())
+	return NULL;
+
+    run_shotset *ss = new run_shotset;
+
     nlohmann::json fdata = nlohmann::json::parse(f);
     const std::string data_version = fdata["data_version"];
-    std::cout << "data version:" << data_version << "\n";
-    const std::string etype = fdata["engine"];
-    std::cout << "engine type:" << etype << "\n";
+    ss->data_version = fdata["data_version"];
+    ss->engine = fdata["engine"];
 
     nlohmann::json &fshots = fdata["shots"];
 
     for(nlohmann::json::const_iterator it = fshots.begin(); it != fshots.end(); ++it) {
 	const nlohmann::json &sdata = *it;
-	parse_shots(sdata);
+	run_shot rs;
+	parse_shot(rs, sdata);
+	ss->shots.push_back(rs);
     }
+
+    return ss;
+}
+
+void
+compare_shots(const char *file1, const char *file2)
+{
+    run_shotset *s1 = parse_shots_file(file1);
+    run_shotset *s2 = parse_shots_file(file2);
+
+    if (!s1 || !s2)
+	return;
 }
 
 /*
  * TODO:
- *	* pass in "accuracy" rays and pass back the results.
  *	* Shoot on a grid set instead of a single ray.
  */
 nlohmann::json *
@@ -219,7 +235,7 @@ do_diff_run(const char *prefix, int argc, char **argv, int nthreads,
 }
 
 bool
-part::cmp(class part &o)
+run_part::cmp(class run_part &o)
 {
     if (o.region != region)
 	return false;
@@ -236,7 +252,7 @@ part::cmp(class part &o)
 }
 
 void
-part::print()
+run_part::print()
 {
 }
 
