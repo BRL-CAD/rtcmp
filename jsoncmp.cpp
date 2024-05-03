@@ -273,17 +273,16 @@ run_shot::different(class run_shot &o, double tol)
 	ret = true;
 
     // 2.  For all partitions along the shot, compare them to see if there are
-    // any discrepancies.  This is where it gets interesting - to provide the
-    // most useful reporting on differences, we may want to use two queues and
-    // pop partitions off of each one - if we get a length delta, one of them,
-    // we can take the one with the smallest in_hit distance (or if those are
-    // the same, out_hit distance) and store it.  We then pop the next one from
-    // that queue and continue as before.
+    // any discrepancies.  This is were things get interesting.  We use two
+    // queues and pop partitions off of them to be able to "recover" if we
+    // encounter a localized difference along the partition - ideally, when we
+    // generate any sort of report on what about the partitions is different,
+    // we want that report to be minimalist.
     //
-    // This will (for example) allow reporting of one segment being inserted
-    // into a shotline partition list due to a change in grazing hit behavior,
-    // rather than cascading the "failed" status of mismatched partitions down
-    // the rest of the shotline.
+    // For example, if one segment has been inserted into a shotline partition
+    // list due to a change in grazing hit behavior, rather than cascading the
+    // "failed" status of mismatched partitions down the rest of the shotline
+    // we want to report just the added partition as the difference.
     std::queue<size_t> oq, q;
     for (size_t i = 0; i < o.partitions.size(); i++)
 	oq.push(i);
