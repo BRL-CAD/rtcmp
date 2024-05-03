@@ -227,6 +227,8 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     jfile.close();
 }
 
+// TODO - probably want to return maximum numerical delta value, so we can do some
+// kind of importance ordering to find the biggest differences
 bool
 run_part::different(class run_part &o, double tol)
 {
@@ -289,8 +291,11 @@ run_shot::different(class run_shot &o, double tol)
     for (size_t i = 0; i < partitions.size(); i++)
 	q.push(i);
 
-    std::vector<size_t> o_unmatched;
-    std::vector<size_t> c_unmatched;
+    std::vector<size_t> o_unmatched_length;
+    std::vector<size_t> c_unmatched_length;
+    std::vector<size_t> o_unmatched_props;
+    std::vector<size_t> c_unmatched_props;
+
     size_t opind = oq.front();
     size_t pind = q.front();
 
@@ -304,21 +309,21 @@ run_shot::different(class run_shot &o, double tol)
 	    // which one to add to its unmatched vector.
 	    if (!NEAR_EQUAL(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
 		if (opart.in_dist < cpart.in_dist) {
-		    o_unmatched.push_back(opind);
+		    o_unmatched_length.push_back(opind);
 		    oq.pop();
 		    continue;
 		} else {
-		    c_unmatched.push_back(pind);
+		    c_unmatched_length.push_back(pind);
 		    q.pop();
 		    continue;
 		}
 	    } else if (!NEAR_EQUAL(opart.out_dist, cpart.out_dist, SMALL_FASTF)) {
 		if (opart.out_dist < cpart.out_dist) {
-		    o_unmatched.push_back(opind);
+		    o_unmatched_length.push_back(opind);
 		    oq.pop();
 		    continue;
 		} else {
-		    c_unmatched.push_back(pind);
+		    c_unmatched_length.push_back(pind);
 		    q.pop();
 		    continue;
 		}
@@ -327,9 +332,9 @@ run_shot::different(class run_shot &o, double tol)
 		// than the partition length itself, those won't have
 		// implications for getting us "out of sync" in subsequent
 		// diffing.  Record both as unmatched and proceed.
-		c_unmatched.push_back(pind);
+		c_unmatched_props.push_back(pind);
 		q.pop();
-		o_unmatched.push_back(opind);
+		o_unmatched_props.push_back(opind);
 		oq.pop();
 	    }
 	}
@@ -339,13 +344,13 @@ run_shot::different(class run_shot &o, double tol)
 	oq.pop();
     }
 
-    // At this point, if either queue has anything left, it is unmatched
+    // At this point, if either queue has anything left, it is an unmatched length
     while (!oq.empty()) {
-	o_unmatched.push_back(oq.front());
+	o_unmatched_length.push_back(oq.front());
 	oq.pop();
     }
     while (!q.empty()) {
-	c_unmatched.push_back(q.front());
+	c_unmatched_length.push_back(q.front());
 	q.pop();
     }
 
@@ -371,7 +376,14 @@ run_shot::different(class run_shot &o, double tol)
 
     // If we're not already different, see if we saw any differences
     if (!ret)
-	ret = (o_unmatched.size() || c_unmatched.size());
+	ret = (o_unmatched_length.size() || c_unmatched_length.size() || o_unmatched_props.size() || c_unmatched_props.size());
+
+    if (ret) {
+	if (o_unmatched_length.size() || c_unmatched_length.size())
+	    std::cerr << "Partition length difference observed\n";
+	if (o_unmatched_props.size() || c_unmatched_props.size())
+	    std::cerr << "Partition properties difference observed\n";
+    }
 
     return ret;
 }
