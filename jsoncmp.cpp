@@ -134,7 +134,7 @@ parse_shots_file(const char *fname)
 }
 
 bool
-compare_shots(const char *file1, const char *file2, double tol)
+shots_differ(const char *file1, const char *file2, double tol)
 {
     run_shotset *s1 = parse_shots_file(file1);
     run_shotset *s2 = parse_shots_file(file2);
@@ -142,7 +142,7 @@ compare_shots(const char *file1, const char *file2, double tol)
     if (!s1 || !s2)
 	return false;
 
-    bool ret = s1->cmp(*s2, tol);
+    bool ret = s1->different(*s2, tol);
     delete s1;
     delete s2;
     return ret;
@@ -228,31 +228,31 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 }
 
 bool
-run_part::cmp(class run_part &o, double tol)
+run_part::different(class run_part &o, double tol)
 {
     // Partition comparisons start with the region name - if
     // that doesn't match, we're done.
     if (o.region != region)
-	return false;
+	return true;
 
     // If the region is OK, then we do a numerical check of the distances and
     // points, number by number.  Any deltas larger than the specified
     // tolerance are grounds for failure.
     if (!NEAR_EQUAL(o.in_dist, in_dist, tol))
-	return false;
+	return true;
     if (!NEAR_EQUAL(o.out_dist, out_dist, tol))
-	return false;
+	return true;
     if (!VNEAR_EQUAL(o.in, in, tol))
-	return false;
+	return true;
     if (!VNEAR_EQUAL(o.out, out, tol))
-	return false;
+	return true;
     if (!VNEAR_EQUAL(o.innorm, innorm, tol))
-	return false;
+	return true;
     if (!VNEAR_EQUAL(o.outnorm, outnorm, tol))
-	return false;
+	return true;
 
     // Looks good
-    return true;
+    return false;
 }
 
 void
@@ -261,16 +261,16 @@ run_part::print()
 }
 
 bool
-run_shot::cmp(class run_shot &o, double tol)
+run_shot::different(class run_shot &o, double tol)
 {
-    bool ret = true;
+    bool ret = false;
 
     // What do we need to do to compare a shot?
     //
     // 1.  partition count - if the partition counts differ, return is false.
     // May want to proceed anyway to try to characterize differences
     if (o.partitions.size() != partitions.size())
-	ret = false;
+	ret = true;
 
     // 2.  For all partitions along the shot, compare them to see if there are
     // any discrepancies.  This is where it gets interesting - to provide the
@@ -300,7 +300,7 @@ run_shot::cmp(class run_shot &o, double tol)
 	pind = q.front();
 	run_part &opart = o.partitions[opind];
 	run_part &cpart = partitions[pind];
-	if (!opart.cmp(cpart, tol)) {
+	if (opart.different(cpart, tol)) {
 	    // We have a difference.  See if we can decide based on distances
 	    // which one to add to its unmatched vector.
 	    if (!NEAR_EQUAL(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
@@ -370,14 +370,9 @@ run_shot::cmp(class run_shot &o, double tol)
     // graphically "pick" a scene object corresponding to a problematic ray and get
     // its exact shotline info via name lookup.
 
-    // If we're not already false, see if we saw any differences
-    if (ret)
-	ret = (!o_unmatched.size() && !c_unmatched.size());
-
-    if (o.partitions.size() || partitions.size()) {
-	std::cerr << "o_unmatched cnt: " << o_unmatched.size() << "\n";
-	std::cerr << "c_unmatched cnt: " << c_unmatched.size() << "\n";
-    }
+    // If we're not already different, see if we saw any differences
+    if (!ret)
+	ret = (o_unmatched.size() || c_unmatched.size());
 
     return ret;
 }
@@ -391,19 +386,18 @@ unsigned long long
 run_shot::ray_hash()
 {
     if (!rhash) {
-	struct bu_data_hash_state *h = bu_data_hash_create();
-	bu_data_hash_update(h, (const void *)ray_pt, sizeof(point_t));
-	bu_data_hash_update(h, (const void *)ray_dir, sizeof(vect_t));
-	rhash = bu_data_hash_val(h);
-	bu_data_hash_destroy(h);
+	struct bu_vls rstr = BU_VLS_INIT_ZERO;
+	bu_vls_sprintf(&rstr, "%0.15f%0.15f%0.15f%0.15f%0.15f%0.15f", V3ARGS(ray_pt), V3ARGS(ray_dir));
+	rhash = bu_data_hash((void *)bu_vls_cstr(&rstr), bu_vls_strlen(&rstr));
+	bu_vls_free(&rstr);
     }
     return rhash;
 }
 
 bool
-run_shotset::cmp(class run_shotset &o, double tol)
+run_shotset::different(class run_shotset &o, double tol)
 {
-    bool ret = true;
+    bool ret = false;
 
     // What do we need to do to compare a shot set?
     //
@@ -417,17 +411,17 @@ run_shotset::cmp(class run_shotset &o, double tol)
     for (m_it = shot_lookup.begin(); m_it != shot_lookup.end(); m_it++) {
 	if (o.shot_lookup.find(m_it->first) == o.shot_lookup.end()) {
 	    // Unmatched shot
-	    ret = false;
+	    ret = true;
 	}
     }
     for (m_it = o.shot_lookup.begin(); m_it != o.shot_lookup.end(); m_it++) {
 	if (shot_lookup.find(m_it->first) == shot_lookup.end()) {
 	    // Unmatched shot
-	    ret = false;
+	    ret = true;
 	}
     }
 
-    if (!ret) {
+    if (ret) {
 	std::cerr << "Warning - unmatched shots found.  Doing comparison only of common shots.\n";
     }
 
@@ -436,14 +430,23 @@ run_shotset::cmp(class run_shotset &o, double tol)
     // equal/not-equal decision is based on the individual shot comparisons -
     // if they all match within tolerance, and all shots are in both sets, then
     // the sets are the same (return true).  Otherwise return false.
+    size_t same_cnt = 0;
+    size_t diff_cnt = 0;
     for (size_t i = 0; i < shots.size(); i++) {
 	m_it = o.shot_lookup.find(shots[i].ray_hash());
 	if (m_it == o.shot_lookup.end())
 	    continue;
-	bool scmp = shots[i].cmp(o.shots[m_it->second], tol);
-	if (!scmp)
-	    ret = false;
+	bool sdiff= shots[i].different(o.shots[m_it->second], tol);
+	if (sdiff) {
+	    ret = true;
+	    diff_cnt++;
+	} else {
+	    same_cnt++;
+	}
     }
+
+    std::cerr << "Identical shotline count: " << same_cnt << "\n";
+    std::cerr << "Differing shotline count: " << diff_cnt << "\n";
 
     return ret;
 }

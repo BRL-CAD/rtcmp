@@ -96,8 +96,12 @@ main(int argc, char **argv)
     }
 
     if (compare_json) {
-	bool cmp = compare_shots(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol);
-	std::cerr << "cmp: " << cmp << "\n";
+	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol);
+	if (is_different) {
+	    std::cerr << "Differences found\n";
+	} else {
+	    std::cerr << "No differences found\n";
+	}
 	return 0;
     }
 

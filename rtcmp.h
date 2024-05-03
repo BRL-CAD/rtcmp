@@ -65,7 +65,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 /* Structures and functions for comparing outputs between raytrace runs */
 class run_part {
     public:
-	bool cmp(class run_part &o, double tol);
+	bool different(class run_part &o, double tol);
 	void print();
 
 	std::string region;
@@ -79,7 +79,7 @@ class run_part {
 
 class run_shot {
     public:
-	bool cmp(class run_shot &o, double tol);
+	bool different(class run_shot &o, double tol);
 	void print();
 	unsigned long long ray_hash();
 	point_t ray_pt;
@@ -91,7 +91,7 @@ class run_shot {
 
 class run_shotset {
     public:
-	bool cmp(class run_shotset &o, double tol);
+	bool different(class run_shotset &o, double tol);
 	void print();
 	std::string data_version;
 	std::string engine;
@@ -102,7 +102,7 @@ class run_shotset {
 run_shotset *
 parse_shots_file(const char *fname);
 
-bool compare_shots(const char *file1, const char *file2, double tol);
+bool shots_differ(const char *file1, const char *file2, double tol);
 
 #endif // RTCMP_H
 
