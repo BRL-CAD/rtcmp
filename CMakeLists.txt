@@ -22,19 +22,17 @@ include_directories(
 
 set(rtcmp_SRCS
   dry/dry.cpp
+  jsoncmp.cpp
+  perfcomp.cpp
   rt/rt_diff.cpp
   rt/rt_perf.cpp
-  jsoncmp.cpp
-  #tie/tie.c
-  perfcomp.cpp
   rtcmp.cpp
+  tie/tie_diff.cpp
+  tie/tie_perf.cpp
   )
 
 add_executable(rtcmp ${rtcmp_SRCS})
 target_link_libraries(rtcmp PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} ${M_LIBRARY})
-
-#	./rtcmp -a -b -r -s /usr/brlcad/share/brlcad/7.?.0/db/ktank.g tank computer g17 engine
-
 
 # Local Variables:
 # tab-width: 8

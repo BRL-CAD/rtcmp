@@ -35,15 +35,13 @@
 #include <brlcad/raytrace.h>
 
 /* Defines used when setting up shotline inputs */
-#define NUMRAYS		((int)1e5)		/* this is PER VIEW */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
-#define NUMTRAYS	(NUMRAYS*NUMVIEWS)	/* total rays shot */
 
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -
  * instead, run time is measured by the caller */
-void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus,
+void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
 	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
@@ -55,7 +53,7 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus,
  * may run rather slowly since shotline intersection data is being captured
  * for output. */
 void
-do_diff_run(const char *prefix, int argc, const char **argv, int ncpus,
+do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
 	void*(*constructor)(const char *, int, const char**, nlohmann::json *),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),

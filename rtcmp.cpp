@@ -30,7 +30,8 @@
 #include "dry/dry.h"
 #include "rt/rt_diff.h"
 #include "rt/rt_perf.h"
-#include "tie/tie.h"
+#include "tie/tie_diff.h"
+#include "tie/tie_perf.h"
 
 #include "rtcmp.h"
 
@@ -44,6 +45,7 @@ main(int argc, char **argv)
     bool performance_test = false;
     bool diff_test = false;
     bool compare_json = false;
+    int rays_per_view = 1e5;
     double diff_tol = SMALL_FASTF;
     std::string json_ofile("shots.json");
     std::vector<std::string> nonopts;
@@ -63,6 +65,7 @@ main(int argc, char **argv)
 	    ("d,difference-test",  "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
 	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(diff_tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
+	    ("rays-per-view",    "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(rays_per_view))
 	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(json_ofile))
 	    ("h,help",             "Print help")
 	    ;
@@ -107,30 +110,30 @@ main(int argc, char **argv)
 	    std::cerr << "Dry-run method does not support generating JSON output for diff comparisons\n";
 	    return -1;
 	}
-	do_perf_run("dry", 2, (const char **)av, ncpus, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+	do_perf_run("dry", 2, (const char **)av, ncpus, rays_per_view, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
 
     /* librt */
+    rt_init_resource(&rt_uniresource, 0, NULL);
     if (!enable_tie) {
 	if (diff_test) {
-	    do_diff_run("rt", 2, (const char **)av, ncpus, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, json_ofile);
+	    do_diff_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, json_ofile);
 	}
 	if (performance_test) {
-	    do_perf_run("rt", 2, (const char **)av, ncpus, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	    do_perf_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
 	}
     }
 
-#if 0
+
     /* TIE */
     if (enable_tie) {
 	if (diff_test) {
-	    do_diff_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
+	    do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, json_ofile);
 	}
 	if (performance_test) {
-	    do_perf_run("tie", argc, argv, ncpus, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor);
+	    do_perf_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
 	}
     }
-#endif
 
     return 0;
 }

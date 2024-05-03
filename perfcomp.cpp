@@ -33,39 +33,13 @@
 
 #include "rtcmp.h"
 
-#define NUMRAYSPERVIEW NUMRAYS/NUMVIEWS
-
-#if 0
-/*
- * compare two partition lists. Return the RMS of deviation (both indist and
- * outdist). If the regions don't match up, return a negative number
- */
-double
-cmppartl(struct part *p1, struct part *p2)
-{
-    float rms = 0.0;
-    while(p1&&p2) {
-	if( strncmp(p1->region,p2->region,NAMELEN) != 0 )
-	    return -99999;
-#define SQ(x) ((x)*(x))
-	rms += SQ(p1->in_dist - p2->in_dist) + SQ(p1->out_dist - p2->out_dist);
-
-	p1 = p1->next;
-	p2 = p2->next;
-    }
-    if(p1||p2)
-	return -1;
-    return sqrt(rms);
-}
-#endif
-
 /*
  * TODO:
  *	* pass in "accuracy" rays and pass back the results.
  *	* Shoot on a grid set instead of a single ray.
  */
 void
-do_perf_run(const char *prefix, int argc, const char **argv, int nthreads,
+do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, int rays_per_view,
 	void *(*constructor) (const char *, int, const char **),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
@@ -89,7 +63,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads,
     for(int i=0;i<NUMVIEWS;i++) VUNITIZE(dir[i]); /* normalize the dirs */
 
 
-    ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
+    ray = (struct xray *)bu_malloc(sizeof(struct xray)*(rays_per_view*NUMVIEWS+1), "allocating ray space");
 
     inst = constructor(*argv, argc-1, argv+1);
     if (inst == NULL) {
@@ -118,14 +92,14 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads,
 	bn_vec_ortho( avec, ray->r_dir );
 	VCROSS( bvec, ray->r_dir, avec );
 	VUNITIZE( bvec );
-	rt_raybundle_maker(ray+j*NUMRAYS,radius,avec,bvec,100,NUMRAYS/100);
+	rt_raybundle_maker(ray+j*rays_per_view,radius,avec,bvec,100,rays_per_view/100);
     }
 
     /* performance run */
     gettimeofday(&start,NULL); cstart = clock();
 
     /* actually shoot all the pre-defined rays */
-    for(int i=0;i<NUMRAYS;++i)
+    for(int i=0;i<rays_per_view;++i)
 	shoot(inst,&ray[i]);
 
     cend = clock(); gettimeofday(&end,NULL);
@@ -137,8 +111,8 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads,
 
     /* Report times */
 #define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
-    std::cout << "Wall clock time: " << SEC(end) - SEC(start) << "\n";
-    std::cout << "CPU time       : " << (double)(cend-cstart)/(double)CLOCKS_PER_SEC << "\n";
+    std::cout << "Wall clock time (" << prefix << "): " << SEC(end) - SEC(start) << "\n";
+    std::cout << "CPU time        (" << prefix << "): " << (double)(cend-cstart)/(double)CLOCKS_PER_SEC << "\n";
 }
 
 

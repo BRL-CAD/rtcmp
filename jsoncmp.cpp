@@ -153,7 +153,7 @@ compare_shots(const char *file1, const char *file2, double tol)
  *	* Shoot on a grid set instead of a single ray.
  */
 void
-do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
+do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int rays_per_view,
 	void *(*constructor) (const char *, int, const char **, nlohmann::json *),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
@@ -182,7 +182,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
     jshots["engine"] = prefix;
     jshots["data_version"] = "1.0";
 
-    ray = (struct xray *)bu_malloc(sizeof(struct xray)*(NUMTRAYS+1), "allocating ray space");
+    ray = (struct xray *)bu_malloc(sizeof(struct xray)*(rays_per_view * NUMVIEWS+1), "allocating ray space");
 
     inst = constructor(*argv, argc-1, argv+1, &jshots);
     if (inst == NULL) {
@@ -211,11 +211,11 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads,
 	bn_vec_ortho( avec, ray->r_dir );
 	VCROSS( bvec, ray->r_dir, avec );
 	VUNITIZE( bvec );
-	rt_raybundle_maker(ray+j*NUMRAYS,radius,avec,bvec,100,NUMRAYS/100);
+	rt_raybundle_maker(ray+j*rays_per_view,radius,avec,bvec,100,rays_per_view/100);
     }
 
     /* actually shoot all the pre-defined rays */
-    for(int i=0;i<NUMRAYS;++i)
+    for(int i=0;i<rays_per_view;++i)
 	shoot(inst,&ray[i]);
 
     /* clean up */
