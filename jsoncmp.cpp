@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <limits>
 #include <queue>
+#include <set>
 #include <time.h>
 #include <sys/time.h>
 
@@ -434,6 +435,8 @@ run_shot::different(class run_shot &o, double tol, diff_output_info &dinfo)
     if (!ret)
 	ret = (o_unmatched_length.size() || c_unmatched_length.size() || o_unmatched_props.size() || c_unmatched_props.size());
 
+    // TODO - return more than just yes/no, so we can report length vs prop
+    // difference counts at higher levels
 #if 0
     if (ret) {
 	if (o_unmatched_length.size() || c_unmatched_length.size())
@@ -501,6 +504,7 @@ run_shotset::different(class run_shotset &o, double tol, diff_output_info &dinfo
     // the sets are the same (return true).  Otherwise return false.
     size_t same_cnt = 0;
     size_t diff_cnt = 0;
+    std::set<size_t> diff_shots;
     for (size_t i = 0; i < shots.size(); i++) {
 	m_it = o.shot_lookup.find(shots[i].ray_hash());
 	if (m_it == o.shot_lookup.end())
@@ -509,6 +513,7 @@ run_shotset::different(class run_shotset &o, double tol, diff_output_info &dinfo
 	if (sdiff) {
 	    ret = true;
 	    diff_cnt++;
+	    diff_shots.insert(i);
 	} else {
 	    same_cnt++;
 	}
@@ -516,6 +521,11 @@ run_shotset::different(class run_shotset &o, double tol, diff_output_info &dinfo
 
     std::cerr << "Identical shotline count: " << same_cnt << "\n";
     std::cerr << "Differing shotline count: " << diff_cnt << "\n";
+
+    std::set<size_t>::iterator d_it;
+    for (d_it = diff_shots.begin(); d_it != diff_shots.end(); d_it++) {
+	bu_log("s %0.17f %0.17f %0.17f %0.17f %0.17f %0.17f\n", V3ARGS(shots[*d_it].ray_pt), V3ARGS(shots[*d_it].ray_dir));
+    }
 
     return ret;
 }
