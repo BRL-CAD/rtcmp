@@ -50,7 +50,7 @@ main(int argc, char **argv)
     diff_output_info dinfo;
     std::vector<std::string> nonopts;
 
-    cxxopts::Options options(argv[0], "A program to evaluate raytracer performance and correctness\n");
+    cxxopts::Options options(argv[0], "rtcmp - a program to evaluate raytracer performance and correctness\n");
 
     try
     {
@@ -76,7 +76,7 @@ main(int argc, char **argv)
 	nonopts = result.unmatched();
 
 	if (result.count("help")) {
-	    std::cout << options.help({""}) << std::endl;
+	    std::cout << options.help({""}) << "\n";
 	    std::cout << "\n";
 	    return 0;
 	}
@@ -84,15 +84,17 @@ main(int argc, char **argv)
 
     catch (const cxxopts::exceptions::exception& e)
     {
-	std::cerr << "error parsing options: " << e.what() << std::endl;
+	std::cerr << "error parsing options: " << e.what() << "\n";
 	return -1;
     }
 
     if (nonopts.size() != 2) {
 	if (compare_json) {
-	    std::cerr << "Error:  need to specify two JSON results files\n";
+	    std::cerr << "Error:  need to specify two JSON results files\n\n";
+	    std::cout << options.help({""}) << "\n";
 	} else {
-	    std::cerr << "Error:  need to specify a geometry file and object\n";
+	    std::cerr << "Error:  need to specify a geometry file and object\n\n";
+	    std::cout << options.help({""}) << "\n";
 	}
 	return -1;
     }
