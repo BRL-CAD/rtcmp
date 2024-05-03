@@ -98,6 +98,7 @@ main(int argc, char **argv)
     }
 
     if (compare_json) {
+	std::cerr << "Using diff tolerance: " << diff_tol << "\n";
 	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
 	if (is_different) {
 	    std::cerr << "Differences found\n";
