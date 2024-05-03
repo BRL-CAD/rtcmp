@@ -134,7 +134,7 @@ parse_shots_file(const char *fname)
 }
 
 bool
-shots_differ(const char *file1, const char *file2, double tol)
+shots_differ(const char *file1, const char *file2, double tol, diff_output_info &dinfo)
 {
     run_shotset *s1 = parse_shots_file(file1);
     run_shotset *s2 = parse_shots_file(file2);
@@ -142,7 +142,7 @@ shots_differ(const char *file1, const char *file2, double tol)
     if (!s1 || !s2)
 	return false;
 
-    bool ret = s1->different(*s2, tol);
+    bool ret = s1->different(*s2, tol, dinfo);
     delete s1;
     delete s2;
     return ret;
@@ -159,7 +159,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),
 	int (*destructor) (void *),
-	std::string &json_ofile)
+	diff_output_info &dinfo)
 {
     clock_t cstart, cend;
     struct part **p;
@@ -222,7 +222,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     bu_free(ray, "ray space");
     destructor(inst);
 
-    std::ofstream jfile(json_ofile);
+    std::ofstream jfile(dinfo.json_ofile);
     jfile << std::setw(2) << jshots << "\n";
     jfile.close();
 }
@@ -230,7 +230,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 // TODO - probably want to return maximum numerical delta value, so we can do some
 // kind of importance ordering to find the biggest differences
 bool
-run_part::different(class run_part &o, double tol)
+run_part::different(class run_part &o, double tol, diff_output_info &dinfo)
 {
     // Partition comparisons start with the region name - if
     // that doesn't match, we're done.
@@ -263,7 +263,7 @@ run_part::print()
 }
 
 bool
-run_shot::different(class run_shot &o, double tol)
+run_shot::different(class run_shot &o, double tol, diff_output_info &dinfo)
 {
     bool ret = false;
 
@@ -304,7 +304,7 @@ run_shot::different(class run_shot &o, double tol)
 	pind = q.front();
 	run_part &opart = o.partitions[opind];
 	run_part &cpart = partitions[pind];
-	if (opart.different(cpart, tol)) {
+	if (opart.different(cpart, tol, dinfo)) {
 	    // We have a difference.  See if we can decide based on distances
 	    // which one to add to its unmatched vector.
 	    if (!NEAR_EQUAL(opart.in_dist, cpart.in_dist, SMALL_FASTF)) {
@@ -406,7 +406,7 @@ run_shot::ray_hash()
 }
 
 bool
-run_shotset::different(class run_shotset &o, double tol)
+run_shotset::different(class run_shotset &o, double tol, diff_output_info &dinfo)
 {
     bool ret = false;
 
@@ -447,7 +447,7 @@ run_shotset::different(class run_shotset &o, double tol)
 	m_it = o.shot_lookup.find(shots[i].ray_hash());
 	if (m_it == o.shot_lookup.end())
 	    continue;
-	bool sdiff= shots[i].different(o.shots[m_it->second], tol);
+	bool sdiff= shots[i].different(o.shots[m_it->second], tol, dinfo);
 	if (sdiff) {
 	    ret = true;
 	    diff_cnt++;

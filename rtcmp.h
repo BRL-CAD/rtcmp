@@ -37,6 +37,15 @@
 /* Defines used when setting up shotline inputs */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
 
+class diff_output_info {
+    public:
+	std::string json_ofile = std::string("shots.json");
+	std::string plot3_file = std::string("diff.plot3");
+	std::string nirt_file = std::string("diff.nrt");
+	std::string dbfile;
+	std::string obj_name;
+};
+
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -
@@ -59,13 +68,13 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
 	int(*destructor)(void *),
-	std::string &json_ofile);
+	diff_output_info &dinfo);
 
 
 /* Structures and functions for comparing outputs between raytrace runs */
 class run_part {
     public:
-	bool different(class run_part &o, double tol);
+	bool different(class run_part &o, double tol, diff_output_info &dinfo);
 	void print();
 
 	std::string region;
@@ -79,7 +88,7 @@ class run_part {
 
 class run_shot {
     public:
-	bool different(class run_shot &o, double tol);
+	bool different(class run_shot &o, double tol, diff_output_info &dinfo);
 	void print();
 	unsigned long long ray_hash();
 	point_t ray_pt;
@@ -91,7 +100,7 @@ class run_shot {
 
 class run_shotset {
     public:
-	bool different(class run_shotset &o, double tol);
+	bool different(class run_shotset &o, double tol, diff_output_info &dinfo);
 	void print();
 	std::string data_version;
 	std::string engine;
@@ -102,7 +111,7 @@ class run_shotset {
 run_shotset *
 parse_shots_file(const char *fname);
 
-bool shots_differ(const char *file1, const char *file2, double tol);
+bool shots_differ(const char *file1, const char *file2, double tol, diff_output_info &dinfo);
 
 #endif // RTCMP_H
 

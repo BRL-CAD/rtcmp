@@ -47,7 +47,7 @@ main(int argc, char **argv)
     bool compare_json = false;
     int rays_per_view = 1e5;
     double diff_tol = SMALL_FASTF;
-    std::string json_ofile("shots.json");
+    diff_output_info dinfo;
     std::vector<std::string> nonopts;
 
     cxxopts::Options options(argv[0], "A program to evaluate raytracer performance and correctness\n");
@@ -65,8 +65,10 @@ main(int argc, char **argv)
 	    ("d,difference-test",  "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
 	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(diff_tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
-	    ("rays-per-view",    "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(rays_per_view))
-	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(json_ofile))
+	    ("rays-per-view",      "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(rays_per_view))
+	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(dinfo.json_ofile))
+	    ("output-nirt",        "Provide a name for the NIRT output file (default is diff.nrt)", cxxopts::value<std::string>(dinfo.nirt_file))
+	    ("output-plot3",       "Provide a name for the PLOT3 output file (default is diff.plot3)", cxxopts::value<std::string>(dinfo.plot3_file))
 	    ("h,help",             "Print help")
 	    ;
 	auto result = options.parse(argc, argv);
@@ -96,7 +98,7 @@ main(int argc, char **argv)
     }
 
     if (compare_json) {
-	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol);
+	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
 	if (is_different) {
 	    std::cerr << "Differences found\n";
 	} else {
@@ -121,7 +123,7 @@ main(int argc, char **argv)
     rt_init_resource(&rt_uniresource, 0, NULL);
     if (!enable_tie) {
 	if (diff_test) {
-	    do_diff_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, json_ofile);
+	    do_diff_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, dinfo);
 	}
 	if (performance_test) {
 	    do_perf_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
@@ -132,7 +134,7 @@ main(int argc, char **argv)
     /* TIE */
     if (enable_tie) {
 	if (diff_test) {
-	    do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, json_ofile);
+	    do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
 	}
 	if (performance_test) {
 	    do_perf_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
