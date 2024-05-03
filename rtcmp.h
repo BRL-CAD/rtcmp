@@ -75,6 +75,8 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 class run_part {
     public:
 	bool different(class run_part &o, double tol, diff_output_info &dinfo);
+	void plot(FILE *pf);
+	void plot(FILE *pf, const class run_part &o);
 	void print();
 
 	std::string region;

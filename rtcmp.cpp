@@ -98,6 +98,12 @@ main(int argc, char **argv)
     }
 
     if (compare_json) {
+
+	// Clear any old output files, to avoid any confusion about what results
+	// are associated with what run.
+	bu_file_delete(dinfo.nirt_file.c_str());
+	bu_file_delete(dinfo.plot3_file.c_str());
+
 	std::cerr << "Using diff tolerance: " << diff_tol << "\n";
 	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
 	if (is_different) {

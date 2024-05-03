@@ -258,6 +258,32 @@ run_part::different(class run_part &o, double tol, diff_output_info &dinfo)
 }
 
 void
+run_part::plot(FILE *pf, const class run_part &o)
+{
+    if (!pf)
+	return;
+
+    if (!NEAR_EQUAL(in_dist, o.in_dist, SMALL_FASTF)) {
+	pdv_3move(pf, in);
+	pdv_3cont(pf, o.in);
+    }
+    if (!NEAR_EQUAL(out_dist, o.out_dist, SMALL_FASTF)) {
+	pdv_3move(pf, out);
+	pdv_3cont(pf, o.out);
+    }
+}
+
+void
+run_part::plot(FILE *pf)
+{
+    if (!pf)
+	return;
+
+    pdv_3move(pf, in);
+    pdv_3cont(pf, out);
+}
+
+void
 run_part::print()
 {
 }
@@ -347,15 +373,45 @@ run_shot::different(class run_shot &o, double tol, diff_output_info &dinfo)
     // At this point, if either queue has anything left, it is an unmatched length
     while (!oq.empty()) {
 	o_unmatched_length.push_back(oq.front());
+	run_part &opart = o.partitions[oq.front()];
 	oq.pop();
     }
     while (!q.empty()) {
 	c_unmatched_length.push_back(q.front());
+	run_part &cpart = partitions[q.front()];
 	q.pop();
     }
 
-    // TODO - we need to generate a plot file with the unmatched partitions for
-    // debugging.  Need to think about how to do that - one file per ray?  That
+    // We generate a plot file with full_length representations of the
+    // partitions for debugging, to show context.  Note that these are NOT the
+    // actual differences, but rather the partition segments that reported as
+    // different between the two runs.  The differences themselves are often too
+    // tiny to be visible when plotting.
+    FILE *pf = fopen(dinfo.plot3_file.c_str(), "ab");
+    if (pf) {
+	pl_color(pf, 255, 0, 0);
+	for (size_t i = 0; i < o_unmatched_length.size(); i++) {
+	    run_part &part = o.partitions[o_unmatched_length[i]];
+	    part.plot(pf);
+	}
+	pl_color(pf, 0, 0, 255);
+	for (size_t i = 0; i < c_unmatched_props.size(); i++) {
+	    run_part &part = partitions[c_unmatched_length[i]];
+	    part.plot(pf);
+	}
+
+	pl_color(pf, 255, 0, 255);
+	// Since there's no length difference for property differences,
+	// just plot one copy
+	for (size_t i = 0; i < c_unmatched_props.size(); i++) {
+	    run_part &part = o.partitions[o_unmatched_length[i]];
+	    part.plot(pf);
+	}
+
+	fclose(pf);
+    }
+
+    // Need to think about how to do that - one file per ray?  That
     // could be a lot of files, but all-in-one wouldn't let us inspect the
     // individual ray graphically.  However, an all-in-one file would let us
     // see patters visually (i.e. BVH aligned, they're all grazing rays, only
@@ -378,12 +434,14 @@ run_shot::different(class run_shot &o, double tol, diff_output_info &dinfo)
     if (!ret)
 	ret = (o_unmatched_length.size() || c_unmatched_length.size() || o_unmatched_props.size() || c_unmatched_props.size());
 
+#if 0
     if (ret) {
 	if (o_unmatched_length.size() || c_unmatched_length.size())
 	    std::cerr << "Partition length difference observed\n";
 	if (o_unmatched_props.size() || c_unmatched_props.size())
 	    std::cerr << "Partition properties difference observed\n";
     }
+#endif
 
     return ret;
 }
