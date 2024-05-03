@@ -522,10 +522,16 @@ run_shotset::different(class run_shotset &o, double tol, diff_output_info &dinfo
     std::cerr << "Identical shotline count: " << same_cnt << "\n";
     std::cerr << "Differing shotline count: " << diff_cnt << "\n";
 
+    FILE *nf = fopen(dinfo.nirt_file.c_str(), "a");
+    fprintf(nf, "# Use nirt -f diff to produce high-accuracy textual output\n");
+    fprintf(nf, "backout 0\n");
     std::set<size_t>::iterator d_it;
     for (d_it = diff_shots.begin(); d_it != diff_shots.end(); d_it++) {
-	bu_log("s %0.17f %0.17f %0.17f %0.17f %0.17f %0.17f\n", V3ARGS(shots[*d_it].ray_pt), V3ARGS(shots[*d_it].ray_dir));
+	fprintf(nf, "xyz %0.17f %0.17f %0.17f\n", V3ARGS(shots[*d_it].ray_pt));
+	fprintf(nf, "dir %0.17f %0.17f %0.17f\n", V3ARGS(shots[*d_it].ray_dir));
+	fprintf(nf, "s\n");
     }
+    fclose(nf);
 
     return ret;
 }
