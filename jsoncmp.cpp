@@ -6,7 +6,6 @@
 #include <queue>
 #include <set>
 #include <time.h>
-#include <sys/time.h>
 
 #include "rtcmp.h"
 
@@ -162,9 +161,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	int (*destructor) (void *),
 	diff_output_info &dinfo)
 {
-    clock_t cstart, cend;
     struct part **p;
-    struct timeval start, end;
     struct xray *ray;
     void *inst;
 

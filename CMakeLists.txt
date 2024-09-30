@@ -32,7 +32,8 @@ set(rtcmp_SRCS
   )
 
 add_executable(rtcmp ${rtcmp_SRCS})
-target_link_libraries(rtcmp PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} ${M_LIBRARY})
+target_compile_definitions(rtcmp PRIVATE RT_DLL_IMPORTS)
+target_link_libraries(rtcmp PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} $<$<BOOL:${M_LIBRARY}>:${M_LIBRARY}>)
 
 # Local Variables:
 # tab-width: 8

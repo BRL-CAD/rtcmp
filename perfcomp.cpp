@@ -27,9 +27,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <sys/time.h>
 
 #include <fstream>
+
+#include <brlcad/bu.h>
 
 #include "rtcmp.h"
 
@@ -46,9 +47,9 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	void (*shoot) (void *, struct xray * ray),
 	int (*destructor) (void *))
 {
-    clock_t cstart, cend;
+    int64_t wallclock_start, wallclock_end;
+    clock_t cpu_start, cpu_end;
     struct part **p;
-    struct timeval start, end;
     struct xray *ray;
     void *inst;
 
@@ -96,13 +97,13 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     }
 
     /* performance run */
-    gettimeofday(&start,NULL); cstart = clock();
+    wallclock_start = bu_gettime(); cpu_start = clock();
 
     /* actually shoot all the pre-defined rays */
     for(int i=0;i<rays_per_view;++i)
 	shoot(inst,&ray[i]);
 
-    cend = clock(); gettimeofday(&end,NULL);
+    cpu_end = clock(); wallclock_end = bu_gettime();
     /* end of performance run */
 
     /* clean up */
@@ -110,9 +111,8 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     destructor(inst);
 
     /* Report times */
-#define SEC(tv) ((double)tv.tv_sec + (double)(tv.tv_usec)/(double)1e6)
-    std::cout << "Wall clock time (" << prefix << "): " << SEC(end) - SEC(start) << "\n";
-    std::cout << "CPU time        (" << prefix << "): " << (double)(cend-cstart)/(double)CLOCKS_PER_SEC << "\n";
+    std::cout << "Wall clock time (" << prefix << "): " << (wallclock_end - wallclock_start)/1000000.0 << "\n";
+    std::cout << "CPU time        (" << prefix << "): " << (double)(cpu_end-cpu_start)/(double)CLOCKS_PER_SEC << "\n";
 }
 
 

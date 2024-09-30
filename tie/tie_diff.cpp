@@ -36,6 +36,7 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
+#include <sstream>
 #include <limits>
 #include <iomanip>
 #include "json.hpp"
