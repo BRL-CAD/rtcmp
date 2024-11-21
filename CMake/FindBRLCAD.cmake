@@ -213,6 +213,12 @@ foreach(brl_lib ${BRLCAD_REQ_LIB_NAMES})
   set(BRLCAD_REQ_LIBS ${BRLCAD_REQ_LIBS} BRLCAD_${LIBCORE}_LIBRARY)
   if(BRLCAD_${LIBCORE}_LIBRARY)
     set(BRLCAD_LIBRARIES ${BRLCAD_LIBRARIES} ${BRLCAD_${LIBCORE}_LIBRARY})
+    if(WIN32)
+	# windows wants the dll location
+	find_file(BRLCAD_${LIBCORE}_LOC NAMES ${brl_lib}.dll lib${brl_lib}.dll PATHS ${BRLCAD_BIN_DIR} NO_SYSTEM_PATH)
+    else(WIN32)
+	set(BRLCAD_${LIBCORE}_LOC ${BRLCAD_${LIBCORE}_LIBRARY)
+    endif(WIN32)
   else(BRLCAD_${LIBCORE}_LIBRARY)
     set(BRLCAD_LIBRARIES_NOTFOUND ${BRLCAD_LIBRARIES_NOTFOUND} ${brl_lib})
   endif(BRLCAD_${LIBCORE}_LIBRARY)
@@ -267,11 +273,14 @@ if(BRLCAD_FOUND)
   set(libtargets)
   foreach(brl_lib ${BRLCAD_REQ_LIB_NAMES})
     string(TOUPPER ${brl_lib} LIBCORE)
-    add_library(BRLCAD::${LIBCORE} UNKNOWN IMPORTED)
+    add_library(BRLCAD::${LIBCORE} SHARED IMPORTED)
     set_target_properties(BRLCAD::${LIBCORE} PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${BRLCAD_INCLUDE_DIR}"
-      IMPORTED_LOCATION ${BRLCAD_${LIBCORE}_LIBRARY}
-      IMPORTED_LOCATION_DEBUG ${BRLCAD_${LIBCORE}_LIBRARY})
+      IMPORTED_IMPLIB "${BRLCAD_${LIBCORE}_LIBRARY}"
+      IMPORTED_IMPLIB_DEBUG "${BRLCAD_${LIBCORE}_LIBRARY}"
+      IMPORTED_LOCATION "${BRLCAD_${LIBCORE}_LOC}"
+      IMPORTED_LOCATION_DEBUG "${BRLCAD_${LIBCORE}_LOC}"
+    )
     set(libtargets ${libtargets} BRLCAD::${LIBCORE})
   endforeach(brl_lib ${BRL-CAD_LIBS_SEARCH_LIST})
   # For the optional libs, add them IFF they are present
