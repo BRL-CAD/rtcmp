@@ -188,7 +188,7 @@ rt_diff_destructor(void *g)
     struct app_json *jc = (struct app_json *)a->a_uptr;
     BU_PUT(jc, struct app_json);
     rt_free_rti(a->a_rt_i);
-    free(a);
+    bu_free(a, "free RT application");
     return 0;
 }
 
