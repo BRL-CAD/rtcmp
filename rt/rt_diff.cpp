@@ -35,6 +35,7 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
+#include <fstream>
 #include <sstream>
 #include <limits>
 #include <iomanip>
@@ -42,7 +43,8 @@ extern "C" {
 #include "rt/rt_diff.h"
 
 struct app_json {
-    nlohmann::json *jshots;
+    std::ofstream* ofile;
+    std::string jshots;
     nlohmann::json *shotparts;
 };
 
@@ -121,8 +123,17 @@ rt_diff_shoot(void *g, struct xray * ray)
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
     rt_shootray(a);		/* call into librt */
 
-    // TODO - lock?
-    (*j->jshots)["shots"].push_back(rayparts);
+    // accumulate the shot
+    // TODO: lock or per-shot file writing?
+    (j->jshots) += rayparts.dump() + "\n";
+
+    if (j->jshots.size() >= 10 * 1024 * 1024) {	    // don't accumulate more than 10MB
+	if (!(*j->ofile).is_open()) {
+	    // error
+	}
+	(*j->ofile).write(j->jshots.data(), j->jshots.size());
+	j->jshots.clear();
+    }
 }
 
 double
@@ -142,7 +153,7 @@ rt_diff_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-rt_diff_constructor(const char *file, int numreg, const char **regs, nlohmann::json *j)
+rt_diff_constructor(const char *file, int numreg, const char **regs, std::string outFileName)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -175,7 +186,7 @@ rt_diff_constructor(const char *file, int numreg, const char **regs, nlohmann::j
     /* Connect the json output container to the application structure */
     struct app_json *jc;
     BU_GET(jc, struct app_json);
-    jc->jshots = j;
+    jc->ofile = new std::ofstream(outFileName, std::ios::binary);
     a->a_uptr = (void *)jc;
 
     return (void *) a;
@@ -186,6 +197,16 @@ rt_diff_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     struct app_json *jc = (struct app_json *)a->a_uptr;
+
+    // ensure all shot data is written
+    if (!jc->jshots.empty()) {
+	(*jc->ofile).write(jc->jshots.data(), jc->jshots.size());
+	jc->jshots.clear();
+    }
+    (*jc->ofile).close();
+
+    // cleanup
+    delete jc->ofile;
     BU_PUT(jc, struct app_json);
     rt_free_rti(a->a_rt_i);
     bu_free(a, "free RT application");

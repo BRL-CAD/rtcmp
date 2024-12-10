@@ -63,7 +63,7 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, int
  * for output. */
 void
 do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
-	void*(*constructor)(const char *, int, const char**, nlohmann::json *),
+	void*(*constructor)(const char *, int, const char**, std::string),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),

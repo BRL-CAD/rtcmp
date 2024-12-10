@@ -32,7 +32,7 @@
 extern "C" void    rt_diff_shoot(void *geom, struct xray * ray);
 extern "C" double  rt_diff_getsize(void *g);
 extern "C" int     rt_diff_getbox(void *g, point_t * min, point_t * max);
-extern "C" void   *rt_diff_constructor(const char *, int, const char **, nlohmann::json *);
+extern "C" void   *rt_diff_constructor(const char *, int, const char **, std::string);
 extern "C" int     rt_diff_destructor(void *);
 
 #endif

@@ -154,7 +154,7 @@ shots_differ(const char *file1, const char *file2, double tol, diff_output_info 
  */
 void
 do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int rays_per_view,
-	void *(*constructor) (const char *, int, const char **, nlohmann::json *),
+	void *(*constructor) (const char *, int, const char **, std::string),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),
@@ -177,12 +177,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
     nlohmann::json jshots;
 
-    jshots["engine"] = prefix;
-    jshots["data_version"] = "1.0";
-
     ray = (struct xray *)bu_malloc(sizeof(struct xray)*(rays_per_view * NUMVIEWS+1), "allocating ray space");
 
-    inst = constructor(*argv, argc-1, argv+1, &jshots);
+    inst = constructor(*argv, argc-1, argv+1, dinfo.json_ofile);
     if (inst == NULL) {
 	return;
     }
@@ -219,10 +216,6 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     /* clean up */
     bu_free(ray, "ray space");
     destructor(inst);
-
-    std::ofstream jfile(dinfo.json_ofile);
-    jfile << std::setw(2) << jshots << "\n";
-    jfile.close();
 }
 
 // TODO - probably want to return maximum numerical delta value, so we can do some
