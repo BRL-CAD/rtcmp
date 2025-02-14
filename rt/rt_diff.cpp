@@ -128,6 +128,7 @@ rt_diff_shoot(void *g, struct xray * ray)
     (j->jshots) += rayparts.dump() + "\n";
 
     if (j->jshots.size() >= 10 * 1024 * 1024) {	    // don't accumulate more than 10MB
+	// TODO: make this a function and call it in write as well so we can parallel write .ray file
 	if (!(*j->ofile).is_open()) {
 	    // error
 	}

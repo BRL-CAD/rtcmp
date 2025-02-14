@@ -8,6 +8,7 @@
 #include <time.h>
 
 #include "rtcmp.h"
+#include "shotset.h"
 
 double
 s2d(std::string s)
@@ -148,6 +149,20 @@ shots_differ(const char *file1, const char *file2, double tol, diff_output_info 
     return ret;
 }
 
+bool shots_differ_new(const char *file1, const char *file2, const CompareConfig& config) {
+    ShotSet s1 = measure_time("file1 indexing", [&]() { return ShotSet(file1, config); });
+    ShotSet s2 = measure_time("file2 indexing", [&]() { return ShotSet(file2, config); });
+
+    if (!s1.is_valid() || !s2.is_valid()) {
+	std::cerr << "Invalid shot files" << std::endl;
+	return true;
+    }
+
+    return measure_time("ShotSet comparison", [&]() {
+        return s1.shotset_different(s2);
+    });
+}
+
 /*
  * TODO:
  *	* Shoot on a grid set instead of a single ray.
@@ -184,29 +199,102 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	return;
     }
 
-    /* first with a legit radius gets to define the bb and sph */
-    /* XXX: should this lock? */
-    if (radius < 0.0) {
-	radius = getsize(inst);
-	getbox(inst, bb, bb+1);
-	VADD2SCALE(bb[2], *bb, bb[1], 0.5);	/* (bb[0]+bb[1])/2 */
-    }
-    /* XXX: if locking, we can unlock here */
+    if (!dinfo.in_ray_file.empty()) {
+	// TODO: ray_file could have diff amount of rays than expected in the malloc a few lines up
+	// open file
+	std::ifstream rayfile(dinfo.in_ray_file, std::ios::binary);
+	if (!rayfile.is_open()) {
+	    std::cerr << "failed to open ray_file: " << dinfo.in_ray_file << std::endl;
+	    return;
+	}
 
-    /* build the views with pre-defined rays, yo */
-    for(int j=0; j < NUMVIEWS; ++j) {
-	vect_t avec,bvec;
+	// parse, load into array
+	int ray_idx = 0;
+	std::string line;
+	bool in_section = false;
+	while (std::getline(rayfile, line)) {
+	    // trim leading/trailing whitespace
+	    line.erase(0, line.find_first_not_of(" \t"));
+	    line.erase(line.find_last_not_of(" \t") + 1);
 
-	VMOVE(ray->r_dir,dir[j]);
-	VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
+	    if (in_section) {
+		std::istringstream iss(line);
+		std::string prefix;
+		double x, y, z;
+		iss >> prefix >> x >> y >> z;
 
-	shoot(inst,ray);	/* shoot the accuracy ray while we're here */
+		if (prefix == "xyz") {
+		    ray[ray_idx].r_pt[0] = x;
+		    ray[ray_idx].r_pt[1] = y;
+		    ray[ray_idx].r_pt[2] = z;
+		} else {
+		    // assume this is 'dir' line
+		    ray[ray_idx].r_dir[0] = x;
+		    ray[ray_idx].r_dir[1] = y;
+		    ray[ray_idx].r_dir[2] = z;
 
-	/* set up an othographic grid */
-	bn_vec_ortho( avec, ray->r_dir );
-	VCROSS( bvec, ray->r_dir, avec );
-	VUNITIZE( bvec );
-	rt_raybundle_maker(ray+j*rays_per_view,radius,avec,bvec,100,rays_per_view/100);
+		    // got dir; next ray's up
+		    ray_idx++;
+		}
+	    } else if (line.rfind("**", 0) == 0) {  // check for section start
+		if (in_section)
+		    break;
+
+		// extract amount of rays from section header
+		size_t startIdx = line.find('[');
+		size_t endIdx = line.find(']');
+		if (startIdx != std::string::npos && endIdx != std::string::npos) {
+		    /* NOTE: hijack rays_per_view so our shoot() for-loop fires all the rays in here.
+			     we should end up with +NUMVIEWS rays as the 'accuracy rays' are shot and
+			     logged in the building of views
+		       TODO / FIXME: the bu_malloc of ray[] looks iffy
+		    */
+		    rays_per_view = stoi(line.substr(startIdx + 1, endIdx - startIdx - 1));
+		}
+		in_section = true;
+	    }
+	}
+    } else {
+	/* first with a legit radius gets to define the bb and sph */
+	/* XXX: should this lock? */
+	if (radius < 0.0) {
+	    radius = getsize(inst);
+	    getbox(inst, bb, bb+1);
+	    VADD2SCALE(bb[2], *bb, bb[1], 0.5);	/* (bb[0]+bb[1])/2 */
+	}
+	/* XXX: if locking, we can unlock here */
+
+	/* build the views with pre-defined rays, yo */
+	std::string accuracy_rays = "";
+	char buff[200];
+	for(int j=0; j < NUMVIEWS; ++j) {
+	    vect_t avec,bvec;
+
+	    VMOVE(ray->r_dir,dir[j]);
+	    VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
+
+	    shoot(inst,ray);	/* shoot the accuracy ray while we're here */
+	    sprintf(buff, "xyz %0.17f %0.17f %0.17f\ndir %0.17f %0.17f %0.17f\n", V3ARGS(ray->r_pt), V3ARGS(ray->r_dir));
+	    accuracy_rays += buff;
+
+	    /* set up an othographic grid */
+	    bn_vec_ortho( avec, ray->r_dir );
+	    VCROSS( bvec, ray->r_dir, avec );
+	    VUNITIZE( bvec );
+	    rt_raybundle_maker(ray+j*rays_per_view,radius,avec,bvec,100,rays_per_view/100);
+	}
+
+	// write all the ray info
+	// TODO: do this in dry-run?
+	if (true) {
+	    FILE* ray_file = fopen(dinfo.ray_file.c_str(), "w");	// intentionally erase contents if file already exists
+	    fprintf(ray_file, "**rays fired for %s [%d]**\n", dinfo.json_ofile.c_str(), rays_per_view + NUMVIEWS);	// bundle rays + accuracy rays (0-index)
+	    fprintf(ray_file, "%s", accuracy_rays.c_str());
+	    for (int i = 0; i < rays_per_view; i++) {
+		fprintf(ray_file, "xyz %0.17f %0.17f %0.17f\ndir %0.17f %0.17f %0.17f\n", V3ARGS(ray[i].r_pt), V3ARGS(ray[i].r_dir));
+	    }
+	    fclose(ray_file);
+	}
     }
 
     /* actually shoot all the pre-defined rays */

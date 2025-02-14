@@ -24,6 +24,7 @@ set(rtcmp_SRCS
   dry/dry.cpp
   jsoncmp.cpp
   perfcomp.cpp
+  shotset.cpp
   rt/rt_diff.cpp
   rt/rt_perf.cpp
   rtcmp.cpp
@@ -32,6 +33,7 @@ set(rtcmp_SRCS
   )
 
 add_executable(rtcmp ${rtcmp_SRCS})
+set_property(TARGET rtcmp PROPERTY CXX_STANDARD 17)
 target_compile_definitions(rtcmp PRIVATE RT_DLL_IMPORTS)
 target_link_libraries(rtcmp PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} $<$<BOOL:${M_LIBRARY}>:${M_LIBRARY}>)
 

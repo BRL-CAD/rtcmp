@@ -46,8 +46,7 @@ main(int argc, char **argv)
     bool diff_test = false;
     bool compare_json = false;
     int rays_per_view = 1e5;
-    double diff_tol = SMALL_FASTF;
-    diff_output_info dinfo;
+    CompareConfig config;	// TODO: make this handle all cxxopts
     std::vector<std::string> nonopts;
 
     cxxopts::Options options(argv[0], "rtcmp - a program to evaluate raytracer performance and correctness\n");
@@ -63,12 +62,14 @@ main(int argc, char **argv)
 	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(dry_run))
 	    ("p,performance-test", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(performance_test))
 	    ("d,difference-test",  "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(diff_test))
-	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(diff_tol))
+	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(config.tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(compare_json))
 	    ("rays-per-view",      "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(rays_per_view))
-	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(dinfo.json_ofile))
-	    ("output-nirt",        "Provide a name for the NIRT output file (default is diff.nrt)", cxxopts::value<std::string>(dinfo.nirt_file))
-	    ("output-plot3",       "Provide a name for the PLOT3 output file (default is diff.plot3)", cxxopts::value<std::string>(dinfo.plot3_file))
+	    ("input-rays",         "Provide a name for the ray input file", cxxopts::value<std::string>(config.in_ray_file))
+	    ("output-rays",        "Provide a name for the output file (default is shots.rays)", cxxopts::value<std::string>(config.ray_file))
+	    ("output-json",        "Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(config.json_ofile))
+	    ("output-nirt",        "Provide a name for the NIRT output file (default is diff.nrt)", cxxopts::value<std::string>(config.nirt_file))
+	    ("output-plot3",       "Provide a name for the PLOT3 output file (default is diff.plot3)", cxxopts::value<std::string>(config.plot3_file))
 	    ("h,help",             "Print help")
 	    ;
 	auto result = options.parse(argc, argv);
@@ -103,11 +104,12 @@ main(int argc, char **argv)
 
 	// Clear any old output files, to avoid any confusion about what results
 	// are associated with what run.
-	bu_file_delete(dinfo.nirt_file.c_str());
-	bu_file_delete(dinfo.plot3_file.c_str());
+	bu_file_delete(config.nirt_file.c_str());
+	bu_file_delete(config.plot3_file.c_str());
 
-	std::cerr << "Using diff tolerance: " << diff_tol << "\n";
-	bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
+	std::cerr << "Using diff tolerance: " << config.tol << "\n";
+	//bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
+	bool is_different = shots_differ_new(nonopts[0].c_str(), nonopts[1].c_str(), config);
 	if (is_different) {
 	    std::cerr << "Differences found\n";
 	} else {
@@ -132,6 +134,10 @@ main(int argc, char **argv)
     rt_init_resource(&rt_uniresource, 0, NULL);
     if (!enable_tie) {
 	if (diff_test) {
+	    diff_output_info dinfo;	// FIXME: migrate to new CompareConfig
+	    dinfo.json_ofile = config.json_ofile;
+	    dinfo.in_ray_file = config.in_ray_file;
+	    dinfo.ray_file = config.ray_file;
 	    do_diff_run("rt", 2, (const char **)av, ncpus, rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, dinfo);
 	}
 	if (performance_test) {

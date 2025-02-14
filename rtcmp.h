@@ -34,6 +34,8 @@
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
 
+#include "compare_config.h"
+
 /* Defines used when setting up shotline inputs */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
 
@@ -42,6 +44,8 @@ class diff_output_info {
 	std::string json_ofile = std::string("shots.json");
 	std::string plot3_file = std::string("diff.plot3");
 	std::string nirt_file = std::string("diff.nrt");
+	std::string ray_file  = std::string("shots.rays");
+	std::string in_ray_file = std::string("");
 	std::string dbfile;
 	std::string obj_name;
 };
@@ -114,6 +118,7 @@ run_shotset *
 parse_shots_file(const char *fname);
 
 bool shots_differ(const char *file1, const char *file2, double tol, diff_output_info &dinfo);
+bool shots_differ_new(const char *file1, const char *file2, const CompareConfig& dinfo);
 
 #endif // RTCMP_H
 
