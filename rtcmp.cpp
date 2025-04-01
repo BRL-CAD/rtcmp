@@ -116,15 +116,7 @@ main(int argc, char **argv)
 
     /* Compare run (compare supplied result files) */
     if (opts.compare_run) {
-	// Clear any old output files, to avoid any confusion about what results
-	// are associated with what run.
-	bu_file_delete(opts.compare_opts.nirt_file.c_str());
-	bu_file_delete(opts.compare_opts.plot3_file.c_str());
-
-	std::cerr << "Using diff tolerance: " << opts.compare_opts.tol << "\n";
-	//bool is_different = shots_differ(nonopts[0].c_str(), nonopts[1].c_str(), diff_tol, dinfo);
-	bool is_different = shots_differ_new(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts);
-	if (is_different) {
+	if (shots_differ_new(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts)) {
 	    std::cerr << "Differences found\n";
 	} else {
 	    std::cerr << "No differences found\n";

@@ -150,17 +150,22 @@ shots_differ(const char *file1, const char *file2, double tol, diff_output_info 
 }
 
 bool shots_differ_new(const char *file1, const char *file2, const CompareConfig& config) {
-    ShotSet s1 = measure_time("file1 indexing", [&]() { return ShotSet(file1, config); });
-    ShotSet s2 = measure_time("file2 indexing", [&]() { return ShotSet(file2, config); });
+    // Clear any old output files, to avoid any confusion about what results
+    // are associated with what run.
+    bu_file_delete(config.nirt_file.c_str());
+    bu_file_delete(config.plot3_file.c_str());
+
+    std::cerr << "Using diff tolerance: " << config.tol << "\n";
+
+    ShotSet s1(file1, config);
+    ShotSet s2(file2, config);
 
     if (!s1.is_valid() || !s2.is_valid()) {
 	std::cerr << "Invalid shot files" << std::endl;
 	return true;
     }
 
-    return measure_time("ShotSet comparison", [&]() {
-        return s1.shotset_different(s2);
-    });
+    return s1.shotset_different(s2);
 }
 
 /*
