@@ -33,22 +33,12 @@
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
+#include "shotset.h"
 
 #include "compare_config.h"
 
 /* Defines used when setting up shotline inputs */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
-
-class diff_output_info {
-    public:
-	std::string json_ofile = std::string("shots.json");
-	std::string plot3_file = std::string("diff.plot3");
-	std::string nirt_file = std::string("diff.nrt");
-	std::string ray_file  = std::string("shots.rays");
-	std::string in_ray_file = std::string("");
-	std::string dbfile;
-	std::string obj_name;
-};
 
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
@@ -72,51 +62,11 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
 	int(*destructor)(void *),
-	diff_output_info &dinfo);
+	CompareConfig& dinfo);
 
-
-/* Structures and functions for comparing outputs between raytrace runs */
-class run_part {
-    public:
-	bool different(class run_part &o, double tol, diff_output_info &dinfo);
-	void plot(FILE *pf);
-	void plot(FILE *pf, const class run_part &o);
-	void print();
-
-	std::string region;
-	double in_dist;
-	point_t in;
-	vect_t innorm;
-	double out_dist;
-	point_t out;
-	vect_t outnorm;
-};
-
-class run_shot {
-    public:
-	bool different(class run_shot &o, double tol, diff_output_info &dinfo);
-	void print();
-	unsigned long long ray_hash();
-	point_t ray_pt;
-	vect_t ray_dir;
-	std::vector<run_part> partitions;
-    private:
-	unsigned long long rhash = 0;
-};
-
-class run_shotset {
-    public:
-	bool different(class run_shotset &o, double tol, diff_output_info &dinfo);
-	void print();
-	std::string data_version;
-	std::string engine;
-	std::unordered_map<unsigned long long, size_t> shot_lookup;
-	std::vector<run_shot> shots;
-};
-
-run_shotset *
-parse_shots_file(const char *fname);
-
+/* Do a comparison between two generated results files (from do_diff_run()).
+ * TODO: we could make this a little more streamlined and follow the 'do_xxx_run' pattern
+ */
 bool shots_differ(const char *file1, const char *file2, const CompareConfig& dinfo);
 
 #endif // RTCMP_H

@@ -29,22 +29,28 @@
 
 #include "dry/dry.h"
 
-#define SET()  \
-    p.region = std::string("/some/nifty/little/part.r"); \
-    VSET(p.in,0,0,0); \
-    VSET(p.out,0,0,0); \
-    VSET(p.innorm,0,0,0); \
-    VSET(p.outnorm,0,0,0); \
-    p.in_dist = 0; \
-    p.out_dist = 0;
-
 void
 dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
 {
+    ShotSet::Ray ray(0.0);
+    VSET(ray.pt,0,0,0);
+    VSET(ray.dir,0,0,0);
+
+    std::vector<ShotSet::Partition> parts;
     for (int i = 0; i < 4; i++) {
-    struct run_part p;
-    SET();
+	ShotSet::Partition part(0.0);
+	part.region = std::string("/some/nifty/little/part.r");
+	VSET(part.in,0,0,0);
+	VSET(part.out,0,0,0);
+	VSET(part.in_norm,0,0,0);
+	VSET(part.out_norm,0,0,0);
+	part.in_dist = 0;
+	part.out_dist = 0;
+
+	parts.push_back(part);
     }
+
+    ShotSet::Shot shot{ray, parts};
 }
 
 double

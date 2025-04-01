@@ -152,11 +152,7 @@ main(int argc, char **argv)
     } else {
 	/* Regular rt */
 	if (opts.diff_run) {
-	    diff_output_info dinfo;	// FIXME: migrate to new CompareConfig
-	    dinfo.json_ofile = opts.compare_opts.json_ofile;
-	    dinfo.in_ray_file = opts.compare_opts.in_ray_file;
-	    dinfo.ray_file = opts.compare_opts.ray_file;
-	    do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, dinfo);
+	    do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
 	}
 	if (opts.performance_run) {
 	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
