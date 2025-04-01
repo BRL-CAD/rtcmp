@@ -134,22 +134,7 @@ parse_shots_file(const char *fname)
     return ss;
 }
 
-bool
-shots_differ(const char *file1, const char *file2, double tol, diff_output_info &dinfo)
-{
-    run_shotset *s1 = parse_shots_file(file1);
-    run_shotset *s2 = parse_shots_file(file2);
-
-    if (!s1 || !s2)
-	return false;
-
-    bool ret = s1->different(*s2, tol, dinfo);
-    delete s1;
-    delete s2;
-    return ret;
-}
-
-bool shots_differ_new(const char *file1, const char *file2, const CompareConfig& config) {
+bool shots_differ(const char *file1, const char *file2, const CompareConfig& config) {
     // Clear any old output files, to avoid any confusion about what results
     // are associated with what run.
     bu_file_delete(config.nirt_file.c_str());

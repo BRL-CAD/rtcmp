@@ -117,8 +117,7 @@ class run_shotset {
 run_shotset *
 parse_shots_file(const char *fname);
 
-bool shots_differ(const char *file1, const char *file2, double tol, diff_output_info &dinfo);
-bool shots_differ_new(const char *file1, const char *file2, const CompareConfig& dinfo);
+bool shots_differ(const char *file1, const char *file2, const CompareConfig& dinfo);
 
 #endif // RTCMP_H
 
