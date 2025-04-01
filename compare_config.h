@@ -6,21 +6,16 @@
 
 /* useful information when comparing shotsets */
 struct CompareConfig {
-    // comparison tolerance
-    double tol = SMALL_FASTF;
-
-    // output file names
-    std::string json_ofile = std::string("shots.json");
-    std::string ray_file = std::string("shots.rays");
-    std::string plot3_file = std::string("diff.plot3");
-    std::string nirt_file = std::string("diff.nrt");
+    double tol = SMALL_FASTF;					    // comparison tolerance
 
     // input file names
-    std::string in_ray_file = std::string("");
+    std::string in_ray_file = std::string("");			    // if supplied: use .rays file for results generation
 
-    // ?
-    std::string dbfile;
-    std::string obj_name;
+    // output file names
+    std::string json_ofile = std::string("shots.json");		    // JSON shots result file
+    std::string ray_file = std::string("shots.rays");		    // rays shot in diff_run (not generated if in_ray_file supplied)
+    std::string plot3_file = std::string("diff.plot3");		    // graphically view differences
+    std::string nirt_file = std::string("diff.nrt");		    // xyz and dir of problem rays in compare_run (useful for feeding into individual nirt shots)
 };
 
 #endif COMPARE_CONFIG_H
