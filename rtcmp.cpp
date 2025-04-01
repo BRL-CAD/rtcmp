@@ -110,9 +110,12 @@ main(int argc, char **argv)
 	}
 	return -1;
     }
+    const char *av[3] = {NULL};
+    av[0] = opts.non_opts[0].c_str();
+    av[1] = opts.non_opts[1].c_str();
 
+    /* Compare run (compare supplied result files) */
     if (opts.compare_run) {
-
 	// Clear any old output files, to avoid any confusion about what results
 	// are associated with what run.
 	bu_file_delete(opts.compare_opts.nirt_file.c_str());
@@ -126,24 +129,36 @@ main(int argc, char **argv)
 	} else {
 	    std::cerr << "No differences found\n";
 	}
+
+	// this is a special run - we're done
 	return 0;
     }
 
     /* Dry run (no shotlining, establishes overhead costs - diff run is a no-op) */
-    const char *av[3] = {NULL};
-    av[0] = opts.non_opts[0].c_str();
-    av[1] = opts.non_opts[1].c_str();
     if (opts.dry_run) {
 	if (opts.diff_run) {
+	    // TODO:
 	    std::cerr << "Dry-run method does not support generating JSON output for diff comparisons\n";
 	    return -1;
 	}
 	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.rays_per_view, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
 
-    /* librt */
+    // librt setup
     rt_init_resource(&rt_uniresource, 0, NULL);
-    if (!opts.use_tie) {
+
+    /* Diff and/or Performance run */
+    if (opts.use_tie) {
+	/* TIE */
+	if (opts.diff_run) {
+	    // TODO: edited constructor signature
+	    //do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
+	}
+	if (opts.performance_run) {
+	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
+	}
+    } else {
+	/* Regular rt */
 	if (opts.diff_run) {
 	    diff_output_info dinfo;	// FIXME: migrate to new CompareConfig
 	    dinfo.json_ofile = opts.compare_opts.json_ofile;
@@ -153,18 +168,6 @@ main(int argc, char **argv)
 	}
 	if (opts.performance_run) {
 	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
-	}
-    }
-
-
-    /* TIE */
-    if (opts.use_tie) {
-	if (opts.diff_run) {
-	    // TODO: edited constructor signature
-	    //do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
-	}
-	if (opts.performance_run) {
-	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
 	}
     }
 
