@@ -8,7 +8,8 @@
 
 #include "json.hpp"
 
-// ***** HELPER FUNCTIONS [start] - find a better home for these ***** //
+// ***** HELPER FUNCTIONS [start] ***** //
+/* hash a ray's pt + dir to create uniquely identifyable key */
 unsigned long long rhash(point_t pt, vect_t dir) {
     struct bu_vls rstr = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&rstr, "%0.15f%0.15f%0.15f%0.15f%0.15f%0.15f", V3ARGS(pt), V3ARGS(dir));
@@ -18,7 +19,8 @@ unsigned long long rhash(point_t pt, vect_t dir) {
     return hash;
 }
 
-double _s2d(std::string doubleStr) {
+/* convert string to double */
+double s2d(std::string doubleStr) {
     double ret;
     std::stringstream ss(doubleStr);
     size_t prec = std::numeric_limits<double>::max_digits10;
@@ -26,7 +28,7 @@ double _s2d(std::string doubleStr) {
     return ret;
 }
 
-/* helper function to extract XYZ values from json 'data'
+/* extract XYZ values from json 'data'
  * xyz is stored in ret[0], ret[1], ret[2] respectively
  */
 bool parse_xyz(double (*ret)[3], const nlohmann::json &data) {
@@ -34,9 +36,9 @@ bool parse_xyz(double (*ret)[3], const nlohmann::json &data) {
         return false;
     }
 
-    (*ret)[X] = _s2d(data["X"]);
-    (*ret)[Y] = _s2d(data["Y"]);
-    (*ret)[Z] = _s2d(data["Z"]);
+    (*ret)[X] = s2d(data["X"]);
+    (*ret)[Y] = s2d(data["Y"]);
+    (*ret)[Z] = s2d(data["Z"]);
 
     return true;
 }
@@ -230,10 +232,10 @@ Shot ShotSet::_get_shot(std::string& line) const {
         partition.region = part["region"];
         parse_xyz(&partition.in, part["in_pt"]);
         parse_xyz(&partition.in_norm, part["in_norm"]);
-        partition.in_dist = _s2d(part["in_dist"]);
+        partition.in_dist = s2d(part["in_dist"]);
         parse_xyz(&partition.out, part["out_pt"]);
         parse_xyz(&partition.out_norm, part["out_norm"]);
-        partition.out_dist = _s2d(part["out_dist"]);
+        partition.out_dist = s2d(part["out_dist"]);
 
         // add to vec
         partitions.push_back(partition);
