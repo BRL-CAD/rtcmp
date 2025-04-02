@@ -5,27 +5,9 @@
 #include <utility>  // std::pair
 #include <unordered_map>
 #include <vector>
-#include <chrono>       // measure_time
-#include <functional>   // measure_time
 
 #include "Shot.h"
 #include "compare_config.h"
-
-// TODO: this should live somewhere else
-template <typename Func, typename... Args>
-auto measure_time(const std::string& label, Func&& func, Args&&... args) {
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    // call original function
-    auto result = std::invoke(std::forward<Func>(func), std::forward<Args>(args)...);
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-
-    std::cout << label << " took " << duration << " ms" << std::endl;
-
-    return result; // return the result of the function
-}
 
 /*
  * organize shotfile in memory
