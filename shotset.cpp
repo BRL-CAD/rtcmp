@@ -42,23 +42,6 @@ bool parse_xyz(double (*ret)[3], const nlohmann::json &data) {
 }
 // ***** HELPER FUNCTIONS [end] ***** //
 
-bool ShotSet::Ray::operator==(const Ray& other) const {
-    return VNEAR_EQUAL(pt, other.pt, tol);
-}
-
-bool ShotSet::Partition::operator==(const Partition& other) const {
-    return region == other.region &&
-           VNEAR_EQUAL(in, other.in, tol) &&
-           VNEAR_EQUAL(in_norm, other.in_norm, tol) &&
-           NEAR_EQUAL(in_dist, other.in_dist, tol) &&
-           VNEAR_EQUAL(out, other.out, tol) &&
-           VNEAR_EQUAL(out_norm, other.out_norm, tol) &&
-           NEAR_EQUAL(out_dist, other.out_dist, tol);
-}
-
-bool ShotSet::Shot::operator==(const Shot& other) const {
-    return ray == other.ray && parts == other.parts;
-}
 
 ShotSet::ShotSet(std::string filename, const CompareConfig& _config) : shotfile(filename), config(&_config) {
     // valid file?
@@ -227,21 +210,21 @@ bool ShotSet::shotset_different(const ShotSet& cmp_set) {
     return different;
 }
 
-ShotSet::Shot ShotSet::_get_shot(std::string& line) const {
+Shot ShotSet::_get_shot(std::string& line) const {
     // TODO: error checking for each setter
 
     // extract the JSON we need from line
     nlohmann::json shotJson = nlohmann::json::parse(line);
 
     // build ray
-    Ray ray(this->config->tol);
+    Shot::Ray ray(this->config->tol);
     parse_xyz(&ray.pt, shotJson["ray_pt"]);
     parse_xyz(&ray.dir, shotJson["ray_dir"]);
 
     // build partition table
-    std::vector<Partition> partitions;
+    std::vector<Shot::Partition> partitions;
     for (const auto& part : shotJson["partitions"]) {
-        Partition partition(this->config->tol);
+        Shot::Partition partition(this->config->tol);
 
         // get members from json
         partition.region = part["region"];
@@ -261,7 +244,7 @@ ShotSet::Shot ShotSet::_get_shot(std::string& line) const {
     return shot;
 }
 
-ShotSet::Shot ShotSet::_get_shot(unsigned long long ray_hash) const {
+Shot ShotSet::_get_shot(unsigned long long ray_hash) const {
     // get out this shot's line from file
     auto it = shot_lookup.find(ray_hash);
     uint64_t offset = it->second;

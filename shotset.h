@@ -8,6 +8,7 @@
 #include <chrono>       // measure_time
 #include <functional>   // measure_time
 
+#include "Shot.h"
 #include "compare_config.h"
 
 // TODO: this should live somewhere else
@@ -31,39 +32,6 @@ auto measure_time(const std::string& label, Func&& func, Args&&... args) {
  */ 
 class ShotSet {
     public:
-	class Ray {
-	public:
-	    Ray(const double tol) : tol(tol) {};
-	    point_t pt;
-	    vect_t dir;
-
-	    const double tol;	// comparison tol
-	    bool operator==(const Ray& other) const;
-	};
-
-	class Partition {
-	public:
-	    Partition(const double tol) : tol(tol) {};
-	    std::string region;
-	    point_t in;
-	    vect_t in_norm;
-	    double in_dist;
-	    point_t out;
-	    vect_t out_norm;
-	    double out_dist;
-
-	    const double tol;	// comparison tol
-	    bool operator==(const Partition& other) const;
-	};
-
-	class Shot {
-	public:
-	    Ray ray;
-	    std::vector<Partition> parts;
-
-	    bool operator==(const Shot& other) const;
-	};
-
 	// ShotSet public members
 	ShotSet(std::string filename, const CompareConfig& config);
 	bool is_valid();
