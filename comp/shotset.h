@@ -7,7 +7,8 @@
 #include <vector>
 
 #include "Shot.h"
-#include "compare_config.h"
+#include "comp/compare_config.h"
+#include "json.hpp"
 
 /*
  * organize shotfile in memory

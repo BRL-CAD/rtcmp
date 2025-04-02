@@ -28,14 +28,12 @@
 
 #include <string>
 #include <unordered_map>
-#include "json.hpp"
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
-#include "shotset.h"
+#include "comp/shotset.h"
 
-#include "compare_config.h"
 
 /* Defines used when setting up shotline inputs */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */

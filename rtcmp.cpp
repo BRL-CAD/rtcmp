@@ -32,7 +32,7 @@
 #include "rt/rt_perf.h"
 #include "tie/tie_diff.h"
 #include "tie/tie_perf.h"
-#include "compare_config.h"
+#include "comp/compare_config.h"
 
 #include "rtcmp.h"
 
