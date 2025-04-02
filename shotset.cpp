@@ -127,7 +127,7 @@ bool ShotSet::is_valid() {
     return (valid_set && !shotfile.empty() && (shot_lookup.size() > 0));
 }
 
-bool ShotSet::shotset_different(const ShotSet& cmp_set) {
+bool ShotSet::operator==(const ShotSet& cmp_set) const {
     // open files
     std::ifstream this_file(this->shotfile, std::ios::binary);
     std::ifstream cmp_file(cmp_set.shotfile, std::ios::binary);

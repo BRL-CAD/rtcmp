@@ -17,7 +17,7 @@ class ShotSet {
 	// ShotSet public members
 	ShotSet(std::string filename, const CompareConfig& config);
 	bool is_valid();
-	bool shotset_different(const ShotSet& cmp_set);	    // TODO: this could use operator ==
+	bool operator==(const ShotSet& other) const;
     private:
 	void _print_ray_info(unsigned long long ray_hash, bool linedump = false) const;
 	void _print_ray_info(std::string& ray_json, bool linedump = false) const;

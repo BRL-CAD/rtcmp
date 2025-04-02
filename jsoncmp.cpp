@@ -26,7 +26,7 @@ bool shots_differ(const char *file1, const char *file2, const CompareConfig& con
 	return true;
     }
 
-    return s1.shotset_different(s2);
+    return s1 == s2;
 }
 
 /*
