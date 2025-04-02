@@ -63,9 +63,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 	CompareConfig& dinfo);
 
 /* Do a comparison between two generated results files (from do_diff_run()).
- * TODO: we could make this a little more streamlined and follow the 'do_xxx_run' pattern
+ * produces output file of differing rays
  */
-bool shots_differ(const char *file1, const char *file2, const CompareConfig& dinfo);
+bool do_comp(const char *file1, const char *file2, const CompareConfig& dinfo);
 
 #endif // RTCMP_H
 

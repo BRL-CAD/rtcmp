@@ -10,7 +10,7 @@
 #include "rtcmp.h"
 #include "shotset.h"
 
-bool shots_differ(const char *file1, const char *file2, const CompareConfig& config) {
+bool do_comp(const char *file1, const char *file2, const CompareConfig& config) {
     // Clear any old output files, to avoid any confusion about what results
     // are associated with what run.
     bu_file_delete(config.nirt_file.c_str());
