@@ -1,14 +1,18 @@
 #!/bin/bash
 
+# paths to both rtcmp builds
 CMD1=/pathto/rtcmp/brl_main-build/rtcmp.exe
 CMD2=/pathto/rtcmp/brl_rel-build/rtcmp.exe
-TOL=1e-10
+
 # define file / component pairs to run
 declare -a FILE_COMP_PAIRS=(
   # "/pathto/models/rtcmp_test.g cube.bot"
   # "/pathto/models/pinewood.g bot_pinewood"
   # ...
 )
+
+# tols to check against
+TOLS=(1e-15 1e-12 1e-1)
 
 # run rtcmp for each pair
 for pair in "${FILE_COMP_PAIRS[@]}"; do
@@ -27,7 +31,9 @@ for pair in "${FILE_COMP_PAIRS[@]}"; do
 
   # run comparison
   # rtcmp -c .json1 .json2
-  $CMD1 --output-nirt "$FILE.nirt" -t $TOL -c "$FILE.json1" "$FILE.json2"
+  for tol in "${TOLS[@]}"; do
+    $CMD1 --output-nirt "$FILE.t$tol.nirt" -t $tol -c "$FILE.json1" "$FILE.json2"
+  done
 done
 
 exit 0
