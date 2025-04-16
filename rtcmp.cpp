@@ -136,9 +136,6 @@ main(int argc, char **argv)
 	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.rays_per_view, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
 
-    // librt setup
-    rt_init_resource(&rt_uniresource, 0, NULL);
-
     /* Diff and/or Performance run */
     if (opts.use_tie) {
 	/* TIE */
