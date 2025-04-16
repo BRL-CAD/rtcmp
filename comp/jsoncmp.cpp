@@ -58,7 +58,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
     nlohmann::json jshots;
 
-    ray = (struct xray *)bu_malloc(sizeof(struct xray)*(rays_per_view * NUMVIEWS+1), "allocating ray space");
+    ray = (struct xray *)bu_malloc(sizeof(struct xray)*((rays_per_view +1) * NUMVIEWS), "allocating ray space");
 
     inst = constructor(*argv, argc-1, argv+1, dinfo.json_ofile);
     if (inst == NULL) {
@@ -136,18 +136,16 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	for(int j=0; j < NUMVIEWS; ++j) {
 	    vect_t avec,bvec;
 
-	    VMOVE(ray->r_dir,dir[j]);
-	    VJOIN1(ray->r_pt,bb[2],-radius,dir[j]);
-
-	    shoot(inst,ray);	/* shoot the accuracy ray while we're here */
-	    sprintf(buff, "xyz %0.17f %0.17f %0.17f\ndir %0.17f %0.17f %0.17f\n", V3ARGS(ray->r_pt), V3ARGS(ray->r_dir));
-	    accuracy_rays += buff;
+	    // add accuracy ray in before bundle
+	    int acc_idx = j * (rays_per_view +1);
+	    VMOVE(ray[acc_idx].r_dir,dir[j]);
+	    VJOIN1(ray[acc_idx].r_pt, bb[2], -radius, dir[j]);
 
 	    /* set up an othographic grid */
 	    bn_vec_ortho( avec, ray->r_dir );
 	    VCROSS( bvec, ray->r_dir, avec );
 	    VUNITIZE( bvec );
-	    rt_raybundle_maker(ray+j*rays_per_view,radius,avec,bvec,100,rays_per_view/100);
+	    rt_raybundle_maker(ray + acc_idx,radius,avec,bvec,100,rays_per_view/100);
 	}
 
 	// write all the ray info
@@ -164,7 +162,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     }
 
     /* actually shoot all the pre-defined rays */
-    for(int i=0;i<rays_per_view;++i)
+    for(int i=0;i<(rays_per_view+1)*NUMVIEWS;++i)
 	shoot(inst,&ray[i]);
 
     /* clean up */
