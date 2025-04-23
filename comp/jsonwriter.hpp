@@ -114,12 +114,16 @@ public:
 
         // hand off to global if we're getting close to our max size
         if (buf.capacity() - buf.size() < 2048) {   // check if we've almost maxed out our str
-            bu_semaphore_acquire(BU_SEM_SYSCALL);
-            Collector::buffers().push_back(std::move(buf));
-            bu_semaphore_release(BU_SEM_SYSCALL);
-
-            buf.clear();
+            syncToGlobal();
         }
+    }
+
+    inline void syncToGlobal() {
+        bu_semaphore_acquire(BU_SEM_SYSCALL);
+        Collector::buffers().push_back(std::move(buf));
+        bu_semaphore_release(BU_SEM_SYSCALL);
+
+        buf.clear();
     }
 private:
     Writer() = default;

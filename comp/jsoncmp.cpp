@@ -230,6 +230,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	for (int i = base; i < end; i++)
 	    ta->shoot(thread_app, &ta->rays[i]);
 
+	// make sure thread collection buffer is synced
+	tsj::Writer::instance().syncToGlobal();
+
 	// cleanup
 	rt_clean_resource(rtip, resp);
 	ta->destructor(thread_app);
