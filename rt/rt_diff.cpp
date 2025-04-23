@@ -39,30 +39,14 @@ extern "C" {
 #include <sstream>
 #include <limits>
 #include <iomanip>
-#include "json.hpp"
+#include "comp/jsonwriter.hpp"
 #include "rt/rt_diff.h"
 
-struct app_json {
-    std::ofstream* ofile;
-    std::string jshots;
-    nlohmann::json *shotparts;
-};
-
-static std::string
-d2s(double d)
-{
-    size_t prec = std::numeric_limits<double>::max_digits10;
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(prec) << d;
-    std::string sd = ss.str();
-    return sd;
-}
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
-    struct app_json *j = (struct app_json *)a->a_uptr;
-    nlohmann::json *shotparts = j->shotparts;
+    auto &writer = tsj::Writer::instance();
 
     /* walk the partition list */
     for (struct partition *pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
@@ -71,24 +55,7 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray, 0);
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
 
-	nlohmann::json jpart;
-	jpart["region"] = pp->pt_regionp->reg_name;
-	jpart["in_dist"] = d2s(pp->pt_inhit->hit_dist);
-	jpart["out_dist"] = d2s(pp->pt_outhit->hit_dist);
-	jpart["in_pt"]["X"] = d2s(pp->pt_inhit->hit_point[X]);
-	jpart["in_pt"]["Y"] = d2s(pp->pt_inhit->hit_point[Y]);
-	jpart["in_pt"]["Z"] = d2s(pp->pt_inhit->hit_point[Z]);
-	jpart["out_pt"]["X"] = d2s(pp->pt_outhit->hit_point[X]);
-	jpart["out_pt"]["Y"] = d2s(pp->pt_outhit->hit_point[Y]);
-	jpart["out_pt"]["Z"] = d2s(pp->pt_outhit->hit_point[Z]);
-	jpart["in_norm"]["X"] = d2s(pp->pt_inhit->hit_normal[X]);
-	jpart["in_norm"]["Y"] = d2s(pp->pt_inhit->hit_normal[Y]);
-	jpart["in_norm"]["Z"] = d2s(pp->pt_inhit->hit_normal[Z]);
-	jpart["out_norm"]["X"] = d2s(pp->pt_outhit->hit_normal[X]);
-	jpart["out_norm"]["Y"] = d2s(pp->pt_outhit->hit_normal[Y]);
-	jpart["out_norm"]["Z"] = d2s(pp->pt_outhit->hit_normal[Z]);
-
-	(*shotparts)["partitions"].push_back(jpart);
+	writer.addPartition(pp);
     }
     return 0;
 }
@@ -104,37 +71,14 @@ void
 rt_diff_shoot(void *g, struct xray * ray)
 {
     struct application *a = (struct application *)g;
-    struct app_json *j = (struct app_json *)a->a_uptr;
-
-    // Make a container for this particular shot
-
-    nlohmann::json rayparts;
-    rayparts["ray_pt"]["X"] = d2s(ray->r_pt[X]);
-    rayparts["ray_pt"]["Y"] = d2s(ray->r_pt[Y]);
-    rayparts["ray_pt"]["Z"] = d2s(ray->r_pt[Z]);
-    rayparts["ray_dir"]["X"] = d2s(ray->r_dir[X]);
-    rayparts["ray_dir"]["Y"] = d2s(ray->r_dir[Y]);
-    rayparts["ray_dir"]["Z"] = d2s(ray->r_dir[Z]);
-
-    // TODO - need parallel awareness in shotparts container?
-    j->shotparts = &rayparts;
+    auto &writer = tsj::Writer::instance();
 
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
-    rt_shootray(a);		/* call into librt */
 
-    // accumulate the shot
-    // TODO: lock or per-shot file writing?
-    (j->jshots) += rayparts.dump() + "\n";
-
-    if (j->jshots.size() >= 10 * 1024 * 1024) {	    // don't accumulate more than 10MB
-	// TODO: make this a function and call it in write as well so we can parallel write .ray file
-	if (!(*j->ofile).is_open()) {
-	    // error
-	}
-	(*j->ofile).write(j->jshots.data(), j->jshots.size());
-	j->jshots.clear();
-    }
+    writer.beginShot(*ray);
+        rt_shootray(a);		/* call into librt */
+    writer.endShot();
 }
 
 double
@@ -172,23 +116,7 @@ rt_diff_constructor(const char *file, int numreg, const char **regs, std::string
     a->a_hit = hit;
     a->a_miss = miss;
 
-    a->a_rt_i = rt_dirbuild(file, descr, 0);	/* attach the db file */
-    if (a->a_rt_i == NULL) {
-	fprintf(stderr, "RT: Failed to load database: %s\n", file);
-	bu_free(a, "RT application");
-	return NULL;
-    }
-
-    while (numreg--)
-	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
-
-    /* Connect the json output container to the application structure */
-    struct app_json *jc;
-    BU_GET(jc, struct app_json);
-    jc->ofile = new std::ofstream(outFileName, std::ios::binary);
-    a->a_uptr = (void *)jc;
+    // RELIES ON CALLER TO PREP RTI
 
     return (void *) a;
 }
@@ -197,19 +125,8 @@ int
 rt_diff_destructor(void *g)
 {
     struct application *a = (struct application *)g;
-    struct app_json *jc = (struct app_json *)a->a_uptr;
-
-    // ensure all shot data is written
-    if (!jc->jshots.empty()) {
-	(*jc->ofile).write(jc->jshots.data(), jc->jshots.size());
-	jc->jshots.clear();
-    }
-    (*jc->ofile).close();
 
     // cleanup
-    delete jc->ofile;
-    BU_PUT(jc, struct app_json);
-    rt_free_rti(a->a_rt_i);
     bu_free(a, "free RT application");
     return 0;
 }
