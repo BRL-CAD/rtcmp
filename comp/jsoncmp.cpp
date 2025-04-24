@@ -156,22 +156,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     if (base_inst == NULL) {
 	return;
     }
-    // common prep rti for all threads
-    char desc[BUFSIZ];
-    int reg_to_prep = argc-1;
-    const char** regs = argv+1;
-    struct rt_i* rtip = rt_dirbuild(*argv, desc, 0);
-    if (!rtip) {
-	destructor(base_inst);
-	return;
-    }
-    while (reg_to_prep--)
-	rt_gettree(rtip, *regs++);	/* load up the named regions */
-    rt_prep_parallel(rtip, nthreads);	/* and compile to in-mem
-					 * versions */
 
     struct application* base_app = (struct application*)base_inst;
-    base_app->a_rt_i = rtip;
+
     // get these for ray generation
     double radius = getsize(base_inst);
     point_t bbox[3];
@@ -186,15 +173,12 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     /* multithreading? */
     // TODO: upfront rt_init_resource() one per thread
     struct ThreadArgs {
-	const application* base;
-	const std::string* json_name;
+	application* base;
 	struct xray* rays;
 	int total_rays;
 	int nthreads;
-	void *(*constructor) (const char *, int, const char **, std::string);
 	void (*shoot)(void*, struct xray*);
-	int (*destructor) (void *);
-    } targs { base_app, &dinfo.json_ofile, rays, total_rays, nthreads, constructor, shoot, destructor };
+    } targs { base_app, rays, total_rays, nthreads, shoot };
 
     auto worker = [](int cpu, void* data) {
 	cpu--;	// cpu is 1-indexed
@@ -204,19 +188,6 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
 	// unpack data
 	ThreadArgs* ta = (ThreadArgs*) data;
-	struct rt_i* rtip = ((struct application*)ta->base)->a_rt_i;
-
-	// NOTE: we dont need file / numreg, regs since we know we have a rti already
-	struct application* thread_app = (struct application*)ta->constructor(NULL, 1, NULL, *ta->json_name);
-
-	// attach common rti
-	thread_app->a_rt_i = rtip;
-
-	// create resource for this thread
-	struct resource* resp;
-	BU_GET(resp, struct resource);
-	rt_init_resource(resp, cpu, rtip);
-	thread_app->a_resource = resp;
 	
 	// split in contiguous blocks
 	int per = ta->total_rays / ta->nthreads;
@@ -227,15 +198,14 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 		   : base + per;
 
 	// do the shooting for this block of rays
-	for (int i = base; i < end; i++)
-	    ta->shoot(thread_app, &ta->rays[i]);
+	for (int i = base; i < end; i++) {
+	    // pass our cpu for resources selection
+	    ta->base->a_uptr = reinterpret_cast<void*>(static_cast<uintptr_t>(cpu));
+	    ta->shoot((void*)ta->base, &ta->rays[i]);
+	}
 
 	// make sure thread collection buffer is synced
 	tsj::Writer::instance().syncToGlobal();
-
-	// cleanup
-	rt_clean_resource(rtip, resp);
-	ta->destructor(thread_app);
     };
 
     /* do the work */
@@ -248,7 +218,6 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     tsj::Writer::Collector::flushToFile(dinfo.json_ofile);
     
     /* cleanup */
-    rt_free_rti(rtip);
     destructor(base_inst);
     bu_free(rays, "ray buffer");
 }

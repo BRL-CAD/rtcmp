@@ -42,6 +42,7 @@ extern "C" {
 #include "comp/jsonwriter.hpp"
 #include "rt/rt_diff.h"
 
+struct resource* resources[MAX_PSW] = {0};
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
@@ -73,6 +74,8 @@ rt_diff_shoot(void *g, struct xray * ray)
     struct application *a = (struct application *)g;
     auto &writer = tsj::Writer::instance();
 
+    int resource_idx = static_cast<int>(reinterpret_cast<uintptr_t>( a->a_uptr ));
+    a->a_resource = resources[resource_idx];
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
 
@@ -116,7 +119,23 @@ rt_diff_constructor(const char *file, int numreg, const char **regs, std::string
     a->a_hit = hit;
     a->a_miss = miss;
 
-    // RELIES ON CALLER TO PREP RTI
+    a->a_rt_i = rt_dirbuild(file, descr, 0);	/* attach the db file */
+    if (a->a_rt_i == NULL) {
+	fprintf(stderr, "RT: Failed to load database: %s\n", file);
+	bu_free(a, "RT application");
+	return NULL;
+    }
+
+    for (int i = 0; i < MAX_PSW; i++) {
+	BU_GET(resources[i], struct resource);
+	rt_init_resource(resources[i], i, a->a_rt_i);
+    }
+    a->a_resource = resources[0];
+
+    while (numreg--)
+	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
+    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
+							 * versions */
 
     return (void *) a;
 }
@@ -127,6 +146,11 @@ rt_diff_destructor(void *g)
     struct application *a = (struct application *)g;
 
     // cleanup
+    for (int i = 0; i < MAX_PSW; i++) {
+	rt_clean_resource(a->a_rt_i, resources[i]);
+	BU_PUT(resources[i], struct resource);
+    }
+    rt_free_rti(a->a_rt_i);
     bu_free(a, "free RT application");
     return 0;
 }
