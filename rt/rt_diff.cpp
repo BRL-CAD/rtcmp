@@ -146,10 +146,6 @@ rt_diff_destructor(void *g)
     struct application *a = (struct application *)g;
 
     // cleanup
-    for (int i = 0; i < MAX_PSW; i++) {
-	rt_clean_resource(a->a_rt_i, resources[i]);
-	BU_PUT(resources[i], struct resource);
-    }
     rt_free_rti(a->a_rt_i);
     bu_free(a, "free RT application");
     return 0;
