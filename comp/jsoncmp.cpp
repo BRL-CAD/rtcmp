@@ -9,25 +9,35 @@
 
 #include "rtcmp.h"
 #include "shotset.h"
+#include "shot_comp.h"
 #include "jsonwriter.hpp"
 
-bool do_comp(const char *file1, const char *file2, const CompareConfig& config) {
-    // Clear any old output files, to avoid any confusion about what results
-    // are associated with what run.
-    bu_file_delete(config.nirt_file.c_str());
-    bu_file_delete(config.plot3_file.c_str());
-
-    std::cerr << "Using diff tolerance: " << config.tol << "\n";
-
-    ShotSet s1(file1, config);
-    ShotSet s2(file2, config);
-
-    if (!s1.is_valid() || !s2.is_valid()) {
-	std::cerr << "Invalid shot files" << std::endl;
-	return true;
+void do_comp(const char *file1, const char *file2, const CompareConfig& config) {
+    // build indexes for both shot files
+    ShotIndex s1(file1);
+    if (!s1.isValid()) {
+        std::cerr << "Failed to index " << file1 << std::endl;
+        return; // or handle error appropriately?
     }
 
-    return s1 == s2;
+    ShotIndex s2(file2);
+    if (!s2.isValid()) {
+        std::cerr << "Failed to index " << file2 << std::endl;
+        return;
+    }
+
+    std::cout << "Using diff tolerance: " << config.tol << "\n";
+    ComparisonResult results(s1, s2, config.tol);
+
+    if (results.differences()) {
+	results.writeDiffering(config.nirt_file);
+	results.writeOnlyA(config.nirt_file);
+	results.writeOnlyB(config.nirt_file);
+
+	std::cout << results.differences() << " differences found\n";
+    } else {
+	std::cout << "No differences found\n";
+    }
 }
 
 /*

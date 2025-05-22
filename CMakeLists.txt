@@ -24,6 +24,7 @@ set(rtcmp_SRCS
   dry/dry.cpp
   comp/jsoncmp.cpp
   comp/shotset.cpp
+  comp/shot_comp.cpp
   perfcomp.cpp
   rt/rt_diff.cpp
   rt/rt_perf.cpp
