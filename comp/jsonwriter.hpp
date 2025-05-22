@@ -74,7 +74,7 @@ public:
 
     /* append a partition */
     inline void addPartition(struct partition* pp) {
-        char tmp[512];
+        char tmp[1024];
         int n = std::snprintf(tmp, sizeof(tmp),
             "{\"in_dist\":\"%s\","
             "\"in_norm\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
@@ -103,7 +103,7 @@ public:
         else 
             buf.append("]");
 
-        char tmp[256];
+        char tmp[512];
         int n = std::snprintf(tmp, sizeof(tmp),
             ",\"ray_dir\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
             "\"ray_pt\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"}}\n",
