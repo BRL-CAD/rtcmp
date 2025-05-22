@@ -116,11 +116,7 @@ main(int argc, char **argv)
 
     /* Compare run (compare supplied result files) */
     if (opts.compare_run) {
-	if (do_comp(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts)) {
-	    std::cerr << "Differences found\n";
-	} else {
-	    std::cerr << "No differences found\n";
-	}
+	do_comp(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts);
 
 	// this is a special run - we're done
 	return 0;
