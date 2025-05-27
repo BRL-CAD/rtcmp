@@ -16,6 +16,11 @@ ShotIndex::ShotIndex(const std::string& filename): p_filename(filename) {
     p_file.open(p_filename, std::ios::binary);
     p_valid = p_file.is_open();
 
+    if (!p_valid) {
+        std::cerr << "ERROR opening " << filename << "\n";
+        return;
+    }
+
     // get a very rough guess on number of lines
     auto file_size = std::filesystem::file_size(p_filename);
     size_t avg_bytes_per_line = 650;	// arbitrary-ish value
