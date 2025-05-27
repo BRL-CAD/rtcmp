@@ -20,20 +20,30 @@ for pair in "${FILE_COMP_PAIRS[@]}"; do
   FULLPATH=$(echo "$pair" | awk '{print $1}')
   FILE=$(basename "$FULLPATH")
   COMP=$(echo "$pair" | awk '{print $2}')
+  UNIQ_FILE=$FILE.$COMP
 
   echo ""	# visual separation
-  echo "processing: $FULLPATH"
+  echo "processing: $FULLPATH $COMP"
 
   # generate both json files. First run auto-generates rays. Second run uses rays from first run
   # rtcmp -d file comp
-  $CMD1 --output-json "$FILE.json1" --output-rays "$FILE.rays" -d "$FULLPATH" "$COMP"
-  $CMD2 --output-json "$FILE.json2" --input-rays "$FILE.rays" -d "$FULLPATH" "$COMP"
+  GED_START=$(date +%s.%N)
+  $CMD1 --output-json "$UNIQ_FILE.json1" --output-rays "$UNIQ_FILE.rays" -d "$FULLPATH" "$COMP"
+  $CMD2 --output-json "$UNIQ_FILE.json2" --input-rays "$UNIQ_FILE.rays" -d "$FULLPATH" "$COMP"
+  GEN_END=$(date +%s.%N)
+  GEN_TIME=$(awk -v e="$GEN_END" -v s="$GEN_START" 'BEGIN{print e - s}')
+  echo "[${0##*/}] JSON generation took $GEN_TIME seconds"
 
   # run comparison
   # rtcmp -c .json1 .json2
+  TOL_START=$(date +%s.%N)
   for tol in "${TOLS[@]}"; do
-    $CMD1 --output-nirt "$FILE.t$tol.nirt" -t $tol -c "$FILE.json1" "$FILE.json2"
+    $CMD1 --output-nirt "$UNIQ_FILE.t$tol.nirt" -t $tol -c "$UNIQ_FILE.json1" "$UNIQ_FILE.json2"
   done
+  TOL_END=$(date +%s.%N)
+  TOL_TIME=$(awk -v e="$TOL_END" -v s="$TOL_START" 'BEGIN{print e - s}')
+  echo "[${0##*/}] comparison(s) took $TOL_TIME seconds"
+
 done
 
 exit 0
