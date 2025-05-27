@@ -69,10 +69,12 @@ public:
     // returns total number of differences
     int differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
 
-    // results writers for !equal
-    // TODO: thread safe?
-    // TODO: could probably condense this to one writer (or maybe handle in differences())
-    void writeDiffering(const std::string& filename) const;
+    /* summarize differences
+     * logs general info to cout, and specifics to 'filename'. */
+    void summary(const std::string& filename) const;
+
+    // individual results writers for !equal
+    void writeOnlyDiffering(const std::string& filename) const;
     void writeOnlyA(const std::string& filename) const;
     void writeOnlyB(const std::string& filename) const;
 private:

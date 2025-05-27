@@ -26,18 +26,8 @@ void do_comp(const char *file1, const char *file2, const CompareConfig& config) 
         return;
     }
 
-    std::cout << "Using diff tolerance: " << config.tol << "\n";
     ComparisonResult results(s1, s2, config.tol);
-
-    if (results.differences()) {
-	results.writeDiffering(config.nirt_file);
-	results.writeOnlyA(config.nirt_file);
-	results.writeOnlyB(config.nirt_file);
-
-	std::cout << results.differences() << " differences found\n";
-    } else {
-	std::cout << "No differences found\n";
-    }
+    results.summary(config.nirt_file);
 }
 
 /*

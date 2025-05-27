@@ -215,34 +215,71 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     }
 }
 
-void ComparisonResult::writeDiffering(const std::string& filename) const {
+void ComparisonResult::summary(const std::string& filename) const {
+    // TODO: add verbosity levels
+    std::cout << "Used diff tolerance: " << p_tolerance << "\n";
+
+    if (this->differences()) {
+        // log summary to cout
+        std::cout << "Difference(s) found.\n";
+
+        // categorize differences
+        if (!p_differing.empty()) {
+            std::cout << "\t(" << p_differing.size() << ") shots with unequal hit data.\n";
+            this->writeOnlyDiffering(filename);
+        }
+
+        if (!p_onlyA.empty()) {
+            std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxA->filename() << ".\n";
+            this->writeOnlyA(filename);
+        }
+
+        if (!p_onlyB.empty()) {
+            std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxB->filename() << ".\n";
+            this->writeOnlyB(filename);
+        }
+
+        // 'total'
+        int total_in_A = p_idxA->orderedKeys().size();  // assumes sizeA == sizeB
+        double percent_diff = (double)this->differences() / (double)total_in_A * 100.0;
+        std::cout << "\ttotal differences: " << this->differences() << " / " << total_in_A << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
+        std::cout << "See " << filename << " for full differences.\n";
+    } else {
+	std::cout << "No differences found\n";
+    }
+}
+
+void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
     std::ofstream out(filename, std::ios::out);
     out << "** differing shots [" << p_differing.size() << "] **\n";
+    out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_differing) {
         // TODO: is this all we want to log for differing?
         Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt << "\n" <<
-               "dir " << shot.ray.dir << "\n";
+        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
+               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
     }
 }
 
 void ComparisonResult::writeOnlyA(const std::string& filename) const {
     std::ofstream out(filename, std::ios::out);
     out << "** shots only in " << p_idxA->filename() << " [" << p_onlyA.size() << "] **\n";
+    out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_onlyA) {
         Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt << "\n" <<
-               "dir " << shot.ray.dir << "\n";
+        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
+               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
     }
 }
 
 void ComparisonResult::writeOnlyB(const std::string& filename) const {
     std::ofstream out(filename, std::ios::out);
     out << "** shots only in " << p_idxB->filename() << " [" << p_onlyB.size() << "] **\n";
+    out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_onlyB) {
         Shot shot = p_idxB->getShot(hash).value();
-        out << "xyz " << shot.ray.pt << "\n" <<
-               "dir " << shot.ray.dir << "\n";
+        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
+               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
     }
 }
 
