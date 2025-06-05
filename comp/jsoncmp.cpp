@@ -171,14 +171,23 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     std::ofstream f(dinfo.json_ofile, std::ios::binary | std::ios::trunc);
 
     /* multithreading? */
-    // TODO: upfront rt_init_resource() one per thread
+    // we need one application* and resrouces per thread
+    std::vector<application> apps;
+    apps.reserve(nthreads);
+    apps.emplace_back(*base_app);
+    for (int i = 1; i < nthreads; i++) {
+	application thread_app = *base_app;
+	thread_app.a_resource = (struct resource *)bu_calloc(1, sizeof(struct resource), "resource");
+	rt_init_resource(thread_app.a_resource, i, thread_app.a_rt_i);
+	apps.emplace_back(thread_app);
+    }
     struct ThreadArgs {
-	application* base;
+	std::vector<application>& apps;
 	struct xray* rays;
 	int total_rays;
 	int nthreads;
 	void (*shoot)(void*, struct xray*);
-    } targs { base_app, rays, total_rays, nthreads, shoot };
+    } targs { apps, rays, total_rays, nthreads, shoot };
 
     auto worker = [](int cpu, void* data) {
 	cpu--;	// cpu is 1-indexed
@@ -199,9 +208,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
 	// do the shooting for this block of rays
 	for (int i = base; i < end; i++) {
-	    // pass our cpu for resources selection
-	    ta->base->a_uptr = reinterpret_cast<void*>(static_cast<uintptr_t>(cpu));
-	    ta->shoot((void*)ta->base, &ta->rays[i]);
+	    ta->shoot((void*)&ta->apps[cpu], &ta->rays[i]);
 	}
 
 	// make sure thread collection buffer is synced
