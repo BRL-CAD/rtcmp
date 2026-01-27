@@ -302,43 +302,47 @@ parse_perf_output() {
 
 calc_perf_metrics() {
     # Inputs: wall1 cpu1 wall2 cpu2
-    # Outputs: wall_speedup|wall_speedup_pct|cpu_speedup|cpu_speedup_pct
+    # Outputs: wall_ratio|wall_pct|cpu_ratio|cpu_pct
     #
-    # Signed speedup factor definition:
-    #   r = time1 / time2
-    #   - if r >= 1 => CMD2 is faster => +r
-    #   - if r <  1 => CMD2 is slower => -r   (negative, magnitude < 1)
+    # Signed ratio (baseline=first run):
+    #   - if t2 < t1 (second faster):  + (t1 / t2)
+    #   - if t2 > t1 (second slower):  - (t2 / t1)
+    #   - if equal: +1
     #
-    # Percent "speedup" (positive=faster, negative=slower):
-    #   ((time1 - time2) / time1) * 100
-    #
-    # Empty if insufficient info or division by zero.
+    # Percent change (positive=faster, negative=slower), relative to first:
+    #   ((t1 - t2) / t1) * 100
+
     local w1="$1" c1="$2" w2="$3" c2="$4"
 
     awk -v w1="$w1" -v c1="$c1" -v w2="$w2" -v c2="$c2" '
       function isnum(x) { return (x ~ /^([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$/) }
+      function signed_ratio(t1, t2) {
+        # returns "" if invalid
+        if (!isnum(t1) || !isnum(t2) || (t1+0) == 0 || (t2+0) == 0) return "";
+        if ((t2+0) < (t1+0)) return (t1 / t2);      # faster => positive
+        if ((t2+0) > (t1+0)) return -(t2 / t1);     # slower => negative (magnitude > 1)
+        return 1.0;
+      }
+      function pct_change(t1, t2) {
+        if (!isnum(t1) || !isnum(t2) || (t1+0) == 0) return "";
+        return ((t1 - t2) / t1) * 100.0;
+      }
       BEGIN {
-        wall_s=""; wall_pct="";
-        cpu_s=""; cpu_pct="";
+        wall_r=""; wall_pct="";
+        cpu_r="";  cpu_pct="";
 
-        if (isnum(w1) && isnum(w2) && (w1+0) != 0 && (w2+0) != 0) {
-          r = (w1 / w2);
-          wall_s = (r >= 1.0) ? r : -r;
-          wall_pct = ((w1 - w2) / w1) * 100.0;
-        }
+        wall_r   = signed_ratio(w1, w2);
+        wall_pct = pct_change(w1, w2);
 
-        if (isnum(c1) && isnum(c2) && (c1+0) != 0 && (c2+0) != 0) {
-          r = (c1 / c2);
-          cpu_s = (r >= 1.0) ? r : -r;
-          cpu_pct = ((c1 - c2) / c1) * 100.0;
-        }
+        cpu_r    = signed_ratio(c1, c2);
+        cpu_pct  = pct_change(c1, c2);
 
-        if (wall_s   != "") wall_s   = sprintf("%.6g", wall_s);
+        if (wall_r   != "") wall_r   = sprintf("%.6g", wall_r);
         if (wall_pct != "") wall_pct = sprintf("%.3f", wall_pct);
-        if (cpu_s    != "") cpu_s    = sprintf("%.6g", cpu_s);
+        if (cpu_r    != "") cpu_r    = sprintf("%.6g", cpu_r);
         if (cpu_pct  != "") cpu_pct  = sprintf("%.3f", cpu_pct);
 
-        print wall_s "|" wall_pct "|" cpu_s "|" cpu_pct;
+        print wall_r "|" wall_pct "|" cpu_r "|" cpu_pct;
       }
     '
 }
