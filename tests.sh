@@ -23,6 +23,8 @@ MODEL_DIR="${MODEL_DIR:-}"
 # output directory for artifacts
 OUTDIR="${OUTDIR:-rtcmp_out}"
 mkdir -p "$OUTDIR"
+# delete non-essential output as we go to not consume the disk
+CLEANUP_OUTPUT_ARTIFACTS="${CLEANUP_OUTPUT_ARTIFACTS:-1}"
 
 # comparison tolerance
 #   start at a loose tolerance, if we get no differences; tighten until we do
@@ -224,6 +226,11 @@ parse_compare_output() {
         echo "PASS"
     else
         echo "FAIL"
+    fi
+
+    # clean up uninteresting output
+    if [[ "$status" == "PASS" && "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
+        rm -f "$logfile"
     fi
 }
 
@@ -447,6 +454,11 @@ main() {
             tol_time="$(awk -v e="$tol_end" -v s="$tol_start" 'BEGIN{print e - s}')"
 
             log VERBOSE "            compare: $status (tol=$pass_tol) in $tol_time seconds"
+
+            # cleanup comp artifacts
+            if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
+                rm -f "$json1" "$json2" "$rays"
+            fi
 
             # do perf tests
             local perf_wall1 perf_cpu1 perf_wall2 perf_cpu2 wall_speedup wall_speedup_pct cpu_speedup cpu_speedup_pct
