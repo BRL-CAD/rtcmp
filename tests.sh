@@ -378,6 +378,12 @@ run_perf_test() {
     cpu_speedup="$(echo "$metrics" | cut -d'|' -f3)"
     cpu_speedup_pct="$(echo "$metrics" | cut -d'|' -f4)"
 
+    # cleanup perf artifacts
+    if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
+        rm -f "$out1" "$out2"
+    fi
+
+
     echo "${wall1}|${cpu1}|${wall2}|${cpu2}|${wall_speedup}|${wall_speedup_pct}|${cpu_speedup}|${cpu_speedup_pct}"
 }
 
