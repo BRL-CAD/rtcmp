@@ -22,7 +22,6 @@ MODEL_DIR="${MODEL_DIR:-}"
 
 # output directory for artifacts
 OUTDIR="${OUTDIR:-rtcmp_out}"
-mkdir -p "$OUTDIR"
 # delete non-essential output as we go to not consume the disk
 CLEANUP_OUTPUT_ARTIFACTS="${CLEANUP_OUTPUT_ARTIFACTS:-1}"
 
