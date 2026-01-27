@@ -290,6 +290,16 @@ comp_at_stepping_tols() {
     fi
 }
 
+get_num_rays() {
+    local raysFile="$1"
+
+    [[ -f "$raysFile" ]] || { echo ""; return; }
+
+    # First line looks like:
+    # **rays fired for <path> [num_rays]**
+    sed -n '1p' "$raysFile" | sed -n 's/.*\[\([0-9]\+\)\].*/\1/p'
+}
+
 ########################################
 # 4) PERFORMANCE TESTS
 ########################################
@@ -396,7 +406,7 @@ main() {
 
     # output findings to csv
     local summary_csv="$OUTDIR/summary.csv"
-    echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,compare_status,pass_tol,perf1_wall_s,perf1_cpu_s,perf2_wall_s,perf2_cpu_s,wall_speedup_signed,wall_speedup_pct,cpu_speedup_signed,cpu_speedup_pct" >"$summary_csv"
+    echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,num_rays,compare_status,pass_tol,perf1_wall_s,perf1_cpu_s,perf2_wall_s,perf2_cpu_s,wall_speedup_signed,wall_speedup_pct,cpu_speedup_signed,cpu_speedup_pct" >"$summary_csv"
 
     # gather .g files
     mapfile -t gfiles < <(discover_g_files "$MODEL_DIR" || true)
@@ -458,6 +468,9 @@ main() {
             tol_end="$(date +%s.%N)"
             tol_time="$(awk -v e="$tol_end" -v s="$tol_start" 'BEGIN{print e - s}')"
 
+            local num_rays
+            num_rays="$(get_num_rays "$rays")"
+
             log VERBOSE "            compare: $status (tol=$pass_tol) in $tol_time seconds"
 
             # cleanup comp artifacts
@@ -488,7 +501,7 @@ main() {
             fi
             
             # write to our csv
-            echo "\"$gfile\",\"$comp\",\"$tag\",$bots,$bot_faces,$breps,$prims,$status,$pass_tol,$perf_wall1,$perf_cpu1,$perf_wall2,$perf_cpu2,$wall_speedup,$wall_speedup_pct,$cpu_speedup,$cpu_speedup_pct" >>"$summary_csv"
+            echo "\"$gfile\",\"$comp\",\"$tag\",$bots,$bot_faces,$breps,$prims,$num_rays,$status,$pass_tol,$perf_wall1,$perf_cpu1,$perf_wall2,$perf_cpu2,$wall_speedup,$wall_speedup_pct,$cpu_speedup,$cpu_speedup_pct" >>"$summary_csv"
         done
     done
 
