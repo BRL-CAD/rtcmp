@@ -15,10 +15,10 @@ CMD2=/pathto/rtcmp/brl_rel-build/rtcmp.exe
 # use MGED so we can get investigate and summarize each .g
 MGED=/path/to/mged.exe
 
-# models to run on
-#   - If MODEL_DIR is set: gather all .g files under it (non-recursive)
+# dirs to collect models from (space-separated list - NOTE: this means paths CANNOT have spaces)
+#   - If MODEL_DIRS are set: gather all .g files under them (non-recursive)
 #   - Else: gather all .g files in current directory
-MODEL_DIR="${MODEL_DIR:-}"
+MODEL_DIRS="${MODEL_DIRS:-./bots_only ./breps_only ./primitives_only ./mixed_bag}"
 
 # output directory for artifacts
 OUTDIR="${OUTDIR:-rtcmp_out}"
@@ -101,6 +101,7 @@ need_file() {
 }
 
 check_prereqs() {
+    # TODO: check for / copy all .dll if this is windows
     # we need two rtcmp builds
     need_exec "$CMD1"
     need_exec "$CMD2"
@@ -112,23 +113,44 @@ check_prereqs() {
     mkdir -p "$OUTDIR"
 }
 
+abs_path() {
+    local p="$1"
+    
+    if command -v realpath >/dev/null 2>&1; then
+	realpath "$p"
+    else
+	(cd "$p" && pwd -P)
+    fi
+}
+
 ########################################
 # 2) .g TEST SUITE PREP
 ########################################
 
 discover_g_files() {
-    local dir="${1:-}"
+    local -a dirs=()
 
-    log DEBUG "discover_g_files: MODEL_DIR='${MODEL_DIR:-}' arg_dir='${dir}' pwd='$(pwd)'"
-    #log DEBUG "listing dir:"; ls -la >&2
-
-    # non-recusive find all .g files (either in specified dir or curr)
-    if [[ -n "$dir" ]]; then
-        [[ -d "$dir" ]] || die "MODEL_DIR is not a directory: $dir"
-        find "$dir" -maxdepth 1 -type f -name '*.g' -print
+    # assume a space means we have a list of dirs
+    if [[ -n "${MODEL_DIRS//[[:space:]]/}" ]]; then
+        dirs=( $MODEL_DIRS )
     else
-        find . -maxdepth 1 -type f -name '*.g' -print
+        dirs=( "." )
     fi
+
+    log DEBUG "discover_g_files: dirs='${dirs[*]}' pwd='$(pwd)'"
+
+    local d abs_d
+    for d in "${dirs[@]}"; do
+        [[ -n "${d//[[:space:]]/}" ]] || continue
+        [[ -d "$d" ]] || die "MODEL_DIRS entry is not a directory: $d"
+
+	abs_d="$(abs_path  "$d")"
+
+        # non-recursive .g discovery
+        find "$abs_d" -maxdepth 1 -type f -name '*.g' -print
+    done \
+    | awk 'NF' \
+    | sort -u
 }
 
 get_geom_metrics() {
@@ -184,7 +206,7 @@ build_pairs() {
             printf '%s %s\n' "$gfile" "$top"
         done < <(get_tops "$gfile" || true)
 
-    done < <(discover_g_files "$MODEL_DIR" || true)
+    done < <(discover_g_files || true)
 }
 
 ########################################
@@ -220,17 +242,18 @@ run_generate_jsons() {
 parse_compare_output() {
     local logfile="$1"
     local MATCH_STRING="No differences found"
+    local status="FAIL"
 
     if grep -Fq "$MATCH_STRING" "$logfile"; then
-        echo "PASS"
-    else
-        echo "FAIL"
+	status="PASS"
     fi
 
     # clean up uninteresting output
     if [[ "$status" == "PASS" && "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
         rm -f "$logfile"
     fi
+
+    echo "$status"
 }
 
 # Run compare, capturing logs. Returns PASS/FAIL and writes artifacts
@@ -409,7 +432,7 @@ main() {
     echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,num_rays,compare_status,pass_tol,perf1_wall_s,perf1_cpu_s,perf2_wall_s,perf2_cpu_s,wall_speedup_signed,wall_speedup_pct,cpu_speedup_signed,cpu_speedup_pct" >"$summary_csv"
 
     # gather .g files
-    mapfile -t gfiles < <(discover_g_files "$MODEL_DIR" || true)
+    mapfile -t gfiles < <(discover_g_files || true)
     [[ "${#gfiles[@]}" -gt 0 ]] || die "No .g files found."
 
     # iterate for each file
@@ -511,7 +534,15 @@ main() {
       echo "#CONFIG,key,value"
       echo "#CONFIG,CMD1,\"$CMD1\""
       echo "#CONFIG,CMD2,\"$CMD2\""
-      echo "#CONFIG,MODEL_DIR,\"${MODEL_DIR:-.}\""
+      # make sure we extract absolute paths of model dir(s)
+      if [[ -n "${MODEL_DIRS//[[:space:]]/}" ]]; then
+          for d in $MODEL_DIRS; do
+              echo "#CONFIG,MODEL_DIR,\"$(abs_path "$d")\""
+          done
+      else
+          echo "#CONFIG,MODEL_DIR,\"$(pwd -P)\""
+      fi
+
       echo "#CONFIG,TOLS_LIST,\"$TOLS_LIST\""
       echo "#CONFIG,NUM_CPUS,\"$NUM_CPUS\""
       echo "#CONFIG,RAYS_PER_VIEW,\"$RAYS_PER_VIEW\""
@@ -523,7 +554,14 @@ main() {
     log "    Config used:"
     log "      CMD1         : $CMD1"
     log "      CMD2         : $CMD2"
-    log "      MODEL_DIR    : ${MODEL_DIR:-.}"
+    log "      MODEL_DIRS   :"
+    if [[ -n "${MODEL_DIRS//[[:space:]]/}" ]]; then
+        for d in $MODEL_DIRS; do
+            log "        - $(abs_path "$d")"
+        done
+    else
+        log "        - $(pwd -P)"
+    fi
     log "      TOLS_LIST    : $TOLS_LIST"
     log "      NUM_CPUS     : $NUM_CPUS"
     log "      RAYS_PER_VIEW: $RAYS_PER_VIEW"
@@ -531,4 +569,4 @@ main() {
 }
 
 # and away we go
-main "$@"
+main
