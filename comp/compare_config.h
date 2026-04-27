@@ -18,4 +18,4 @@ struct CompareConfig {
     std::string nirt_file = std::string("diff.nrt");		    // xyz and dir of problem rays in compare_run (useful for feeding into individual nirt shots)
 };
 
-#endif COMPARE_CONFIG_H
+#endif /* COMPARE_CONFIG_H */

@@ -1,5 +1,6 @@
 #include "shot_comp.h"
 
+#include <thread>
 #include <charconv>
 #include <iostream>
 #include <sstream>

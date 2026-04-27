@@ -32,4 +32,4 @@ class ShotSet {
 	std::vector<std::pair<uint64_t, unsigned long long>> offset_ordered_keys;	// order using file offset so we can iterate in sequential chunks
 };
 
-#endif SHOTSET_H
+#endif /* SHOTSET_H */

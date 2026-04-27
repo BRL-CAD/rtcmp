@@ -247,7 +247,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
      * Build the real measured ray pool.  Size it according to estimated
      * throughput, requested runtime, and the requested memory cap.
      */
-    perf_run_bundle_t main_bundle = {perf_seconds, estimated_rays_per_sec, max_ray_pool_bytes, radius, bb, dir, inst, shoot};
+    perf_run_bundle_t main_bundle = {perf_seconds, (size_t)estimated_rays_per_sec, max_ray_pool_bytes, radius, bb, dir, inst, shoot};
     // TODO: since we have this in a modular call, we could do n-runs and average our times
     perf_results_t main_res = do_perf(main_bundle);
 
