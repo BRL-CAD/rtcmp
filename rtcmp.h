@@ -38,11 +38,13 @@
 /* Defines used when setting up shotline inputs */
 #define NUMVIEWS	6			/* this refers to data in perfcomp.c */
 
+
+
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -
  * instead, run time is measured by the caller */
-void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
+void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, double seconds, size_t max_memory,
 	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),

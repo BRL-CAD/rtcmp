@@ -40,7 +40,7 @@
 struct ProgramOptions {
     /*** Global Options ***/
     int ncpus = 0;						    // >1: parallel | 1: serial | 0: maximize CPU
-    int rays_per_view = 1e5;					    // rays fired per view
+    int rays_per_view = 1e5;					    // rays fired per view	((TODO: is this only used for comp runs now?))
     std::vector<std::string> non_opts;				    // unmatched options
 
     /*** Which run are we doing ***/
@@ -52,6 +52,10 @@ struct ProgramOptions {
 
     /*** Options needed for diff / comparison ***/
     CompareConfig compare_opts;
+
+    /*** Options needed for perf ***/
+    double perf_seconds = 20;					    // number of seconds to run perf
+    size_t perf_max_memory = 0;					    // limit memory usage for long perf runs
 };
 
 int
@@ -74,6 +78,8 @@ main(int argc, char **argv)
 	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(opts.compare_opts.tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(opts.compare_run))
 	    ("rays-per-view",      "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(opts.rays_per_view))
+	    ("perf-seconds",       "(perf run)Number of seconds to run (default is 20s)", cxxopts::value<double>(opts.perf_seconds))
+	    ("perf-max_memory",    "(perf run)Limit memory in a perf run (default '0' does not limit memory)", cxxopts::value<size_t>(opts.perf_max_memory))
 	    ("input-rays",         "(difference run)Provide a name for the input ray file to generate shot data from", cxxopts::value<std::string>(opts.compare_opts.in_ray_file))
 	    ("output-rays",        "(compare run)Provide a name for the output file (default is shots.rays)", cxxopts::value<std::string>(opts.compare_opts.ray_file))
 	    ("output-json",        "(compare run)Provide a name for the JSON output file (default is shots.json)", cxxopts::value<std::string>(opts.compare_opts.json_ofile))
@@ -129,7 +135,8 @@ main(int argc, char **argv)
 	    std::cerr << "Dry-run method does not support generating JSON output for diff comparisons\n";
 	    return -1;
 	}
-	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.rays_per_view, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+	// FIXME: dry still fires all rays for perf run
+	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
     }
 
     /* Diff and/or Performance run */
@@ -140,7 +147,7 @@ main(int argc, char **argv)
 	    //do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
 	}
 	if (opts.performance_run) {
-	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
+	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
 	}
     } else {
 	/* Regular rt */
@@ -148,7 +155,7 @@ main(int argc, char **argv)
 	    do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
 	}
 	if (opts.performance_run) {
-	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
 	}
     }
 
