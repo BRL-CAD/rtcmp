@@ -9,16 +9,17 @@ set -euo pipefail
 ########################################
 
 # paths to both rtcmp builds
-CMD1=/pathto/rtcmp/brl_main-build/rtcmp.exe
-CMD2=/pathto/rtcmp/brl_rel-build/rtcmp.exe
+CMD1="${CMD1:-/pathto/rtcmp/brl_main-build/rtcmp.exe}"
+CMD2="${CMD2:-/pathto/rtcmp/brl_rel-build/rtcmp.exe}"
 
 # use MGED so we can get investigate and summarize each .g
-MGED=/path/to/mged.exe
+MGED="${MGED:-/path/to/mged.exe}"
 
 # dirs to collect models from (space-separated list - NOTE: this means paths CANNOT have spaces)
 #   - If MODEL_DIRS are set: gather all .g files under them (non-recursive)
 #   - Else: gather all .g files in current directory
 MODEL_DIRS="${MODEL_DIRS:-./bots_only ./breps_only ./primitives_only ./mixed_bag}"
+HIER_DEPTH="${HIER_DEPTH:-0}"
 
 # output directory for artifacts
 OUTDIR="${OUTDIR:-rtcmp_out}"
@@ -26,12 +27,14 @@ OUTDIR="${OUTDIR:-rtcmp_out}"
 CLEANUP_OUTPUT_ARTIFACTS="${CLEANUP_OUTPUT_ARTIFACTS:-1}"
 
 # comparison tolerance
-#   start at a loose tolerance, if we get no differences; tighten until we do
-TOLS_LIST="${TOLS_LIST:-1e-1 1e-8 1e-12 1e-15}"
+#   start at max tolerance, if we get no differences we're good; otherwise loosen to see if we can get a pass
+TOLS_LIST="${TOLS_LIST:-1e-15 1e-12 1e-1}"
 DO_ALL_TOLS="${DO_ALL_TOLS:-0}"     # don't stop at first failing tol
 
 # do performance tests?
 DO_PERF="${DO_PERF:-1}"
+PERF_SECONDS="${PERF_SECONDS:-3}"               # use 3 sec for perf runs
+PERF_MAX_MEMORY="${PERF_MAX_MEMORY:-0}"         # dont limit memory for perf
 
 # maximize cpu usage by default
 NUM_CPUS="${NUM_CPUS:-0}"
@@ -185,28 +188,18 @@ get_geom_metrics() {
     echo "${bots}|${bot_faces}|${breps}|${prims}"
 }
 
-get_tops() {
+get_components() {
     local gfile="$1"
+    local depth_arg="-maxdepth $HIER_DEPTH"
 
-    # get our tops objects with search so we can avoid problem geometry (like halfspaces)
-    # Feed MGED via stdin to avoid shell quoting issues
-    # Parse ONLY stdout as tops; keep stderr on the console
-    "$MGED" -c "$gfile" <<'EOF' 2> >(cat >&2) | tr -d '\r' | awk 'NF'
-search . -maxdepth 0 -exec {if {[llength [search /{} -type half]] == 0} {puts {}}} ";"
-q
-EOF
-}
+    log DEBUG "MGED object search: file='$gfile' depth_arg='$depth_arg'"
 
-build_pairs() {
-    while IFS= read -r gfile; do
-        [[ -n "${gfile//[[:space:]]/}" ]] || continue
-
-        while IFS= read -r top; do
-            [[ -n "${top//[[:space:]]/}" ]] || continue
-            printf '%s %s\n' "$gfile" "$top"
-        done < <(get_tops "$gfile" || true)
-
-    done < <(discover_g_files || true)
+    {
+        printf 'search . %s -exec if {[llength [search /{} -type half]] == 0} {puts {}} ";"\n' "$depth_arg"
+        printf 'q\n'
+    } | "$MGED" -c "$gfile" 2>&1 \
+      | tr -d '\r' \
+      | awk 'NF && $0 !~ /^mged>/ && $0 !~ /^BRL-CAD/'
 }
 
 ########################################
@@ -278,39 +271,29 @@ comp_at_stepping_tols() {
     local json2="$2"
     local tag="$3"
 
-    local tol last_tol="" status=""
-    local first_fail_tol=""   # first failing tol encountered (in list order)
+    local tol status=""
+    local last_fail_tol=""
 
     for tol in $TOLS_LIST; do
-        last_tol="$tol"
         status="$(run_compare_logged "$json1" "$json2" "$tag" "$tol")"
 
-        if [[ "$status" == "FAIL" ]]; then
-            # log every failure
-            log "              FAIL at tol=$tol"
-            log "                diff log : $OUTDIR/${tag}.t${tol}.compare.log"
-            log "                diff nirt: $OUTDIR/${tag}.t${tol}.nirt"
-
-            # record first failure only
-            if [[ -z "$first_fail_tol" ]]; then
-                first_fail_tol="$tol"
+        if [[ "$status" == "PASS" ]]; then
+            if [[ -z "$last_fail_tol" ]]; then
+                echo "PASS|$tol"
+            else
+                echo "FAIL|$last_fail_tol"
             fi
-
-            # stop on first failure unless "do all tols" requested
-            if [ "$DO_ALL_TOLS" -eq 0 ]; then
-                echo "FAIL|$tol"
-                return 0
-            fi
+            return 0
         fi
+
+        last_fail_tol="$tol"
+
+        log "              FAIL at tol=$tol"
+        log "                diff log : $OUTDIR/${tag}.t${tol}.compare.log"
+        log "                diff nirt: $OUTDIR/${tag}.t${tol}.nirt"
     done
 
-    # If any failures occurred (and we ran all tols), return the first failing tol
-    if [[ -n "$first_fail_tol" ]]; then
-        echo "FAIL|$first_fail_tol"
-    else
-        # passed all levels
-        echo "PASS|$last_tol"
-    fi
+    echo "FAIL|$last_fail_tol"
 }
 
 get_num_rays() {
@@ -330,58 +313,36 @@ get_num_rays() {
 parse_perf_output() {
     local file="$1"
 
-    # ignore ERROR lines by simply matching the time lines
-    local wall cpu
-    wall="$(tr -d '\r' <"$file" | awk '/^[[:space:]]*Wall clock time[[:space:]]*\(/ {print $NF; exit}' || true)"
-    cpu="$(tr -d '\r' <"$file" | awk '/^[[:space:]]*CPU time[[:space:]]*\(/        {print $NF; exit}' || true)"
+    local rps
+    rps="$(tr -d '\r' <"$file" | awk '/^[[:space:]]*Rays\/sec \[wall\][[:space:]]*\(/ {print $NF; exit}' || true)"
 
-    # print: wall|cpu (empty if not found)
-    echo "${wall:-}|${cpu:-}"
+    # only case about rays per sec
+    echo "${rps:-}"
 }
 
 calc_perf_metrics() {
-    # Inputs: wall1 cpu1 wall2 cpu2
-    # Outputs: wall_ratio|wall_pct|cpu_ratio|cpu_pct
+    # Inputs: rps1 rps2
+    # Outputs: rps_ratio
     #
-    # Signed ratio (baseline=first run):
-    #   - if t2 < t1 (second faster):  + (t1 / t2)
-    #   - if t2 > t1 (second slower):  - (t2 / t1)
-    #   - if equal: +1
-    #
-    # Percent change (positive=faster, negative=slower), relative to first:
-    #   ((t1 - t2) / t1) * 100
+    # Throughput metric: higher is better.
+    local rps1="$1"
+    local rps2="$2"
 
-    local w1="$1" c1="$2" w2="$3" c2="$4"
-
-    awk -v w1="$w1" -v c1="$c1" -v w2="$w2" -v c2="$c2" '
+    awk -v r1="$rps1" -v r2="$rps2" '
       function isnum(x) { return (x ~ /^([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$/) }
-      function signed_ratio(t1, t2) {
-        # returns "" if invalid
-        if (!isnum(t1) || !isnum(t2) || (t1+0) == 0 || (t2+0) == 0) return "";
-        if ((t2+0) < (t1+0)) return (t1 / t2);      # faster => positive
-        if ((t2+0) > (t1+0)) return -(t2 / t1);     # slower => negative (magnitude > 1)
-        return 1.0;
-      }
-      function pct_change(t1, t2) {
-        if (!isnum(t1) || !isnum(t2) || (t1+0) == 0) return "";
-        return ((t1 - t2) / t1) * 100.0;
-      }
       BEGIN {
-        wall_r=""; wall_pct="";
-        cpu_r="";  cpu_pct="";
+        if (!isnum(r1) || !isnum(r2) || (r1+0) == 0 || (r2+0) == 0) {
+          print "|"
+          exit
+        }
 
-        wall_r   = signed_ratio(w1, w2);
-        wall_pct = pct_change(w1, w2);
+        if ((r2+0) >= (r1+0)) {
+          ratio = r2 / r1;       # faster => positive
+        } else {
+          ratio = -(r1 / r2);    # slower => negative
+        }
 
-        cpu_r    = signed_ratio(c1, c2);
-        cpu_pct  = pct_change(c1, c2);
-
-        if (wall_r   != "") wall_r   = sprintf("%.6g", wall_r);
-        if (wall_pct != "") wall_pct = sprintf("%.3f", wall_pct);
-        if (cpu_r    != "") cpu_r    = sprintf("%.6g", cpu_r);
-        if (cpu_pct  != "") cpu_pct  = sprintf("%.3f", cpu_pct);
-
-        print wall_r "|" wall_pct "|" cpu_r "|" cpu_pct;
+        printf "%.6g", ratio;
       }
     '
 }
@@ -391,33 +352,24 @@ run_perf_test() {
     local comp="$2"
     local tag="$3"
 
-    # rtcmp perf mode doesn't store results; capture stdout
     local out1="$OUTDIR/${tag}.perf1.txt"
     local out2="$OUTDIR/${tag}.perf2.txt"
 
-    "$CMD1" --rays-per-view "$RAYS_PER_VIEW" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out1" 2>&1
-    "$CMD2" --rays-per-view "$RAYS_PER_VIEW" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out2" 2>&1
+    "$CMD1" --perf-seconds "$PERF_SECONDS" --perf-max_memory "$PERF_MAX_MEMORY" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out1" 2>&1
+    "$CMD2" --perf-seconds "$PERF_SECONDS" --perf-max_memory "$PERF_MAX_MEMORY" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out2" 2>&1
 
-    local p1 p2 wall1 cpu1 wall2 cpu2
-    p1="$(parse_perf_output "$out1")"
-    p2="$(parse_perf_output "$out2")"
-    wall1="$(echo "$p1" | cut -d'|' -f1)"; cpu1="$(echo "$p1" | cut -d'|' -f2)"
-    wall2="$(echo "$p2" | cut -d'|' -f1)"; cpu2="$(echo "$p2" | cut -d'|' -f2)"
+    local rps1 rps2 metrics rps_ratio
+    rps1="$(parse_perf_output "$out1")"
+    rps2="$(parse_perf_output "$out2")"
 
-    local metrics wall_speedup wall_speedup_pct cpu_speedup cpu_speedup_pct
-    metrics="$(calc_perf_metrics "$wall1" "$cpu1" "$wall2" "$cpu2")"
-    wall_speedup="$(echo "$metrics" | cut -d'|' -f1)"
-    wall_speedup_pct="$(echo "$metrics" | cut -d'|' -f2)"
-    cpu_speedup="$(echo "$metrics" | cut -d'|' -f3)"
-    cpu_speedup_pct="$(echo "$metrics" | cut -d'|' -f4)"
+    metrics="$(calc_perf_metrics "$rps1" "$rps2")"
+    rps_ratio="$(echo "$metrics" | cut -d'|' -f1)"
 
-    # cleanup perf artifacts
     if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
         rm -f "$out1" "$out2"
     fi
 
-
-    echo "${wall1}|${cpu1}|${wall2}|${cpu2}|${wall_speedup}|${wall_speedup_pct}|${cpu_speedup}|${cpu_speedup_pct}"
+    echo "${rps1}|${rps2}|${rps_ratio}"
 }
 
 ########################################
@@ -429,7 +381,7 @@ main() {
 
     # output findings to csv
     local summary_csv="$OUTDIR/summary.csv"
-    echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,num_rays,compare_status,pass_tol,perf1_wall_s,perf1_cpu_s,perf2_wall_s,perf2_cpu_s,wall_speedup_signed,wall_speedup_pct,cpu_speedup_signed,cpu_speedup_pct" >"$summary_csv"
+    echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,num_comp_rays,compare_status,comp_status_tol,perf1_rays_per_sec_wall,perf2_rays_per_sec_wall,rays_per_sec_ratio" >"$summary_csv"
 
     # gather .g files
     mapfile -t gfiles < <(discover_g_files || true)
@@ -444,7 +396,7 @@ main() {
         log "==> processing: $gfile"
 
         # gather components for this file
-        mapfile -t comps < <(get_tops "$gfile" || true)
+        mapfile -t comps < <(get_components "$gfile" || true)
         [[ "${#comps[@]}" -gt 0 ]] || { log "    (no tops found)"; continue; }
 
         # run rtcmp for each comp
@@ -502,29 +454,23 @@ main() {
             fi
 
             # do perf tests
-            local perf_wall1 perf_cpu1 perf_wall2 perf_cpu2 wall_speedup wall_speedup_pct cpu_speedup cpu_speedup_pct
-            perf_wall1=""; perf_cpu1=""; perf_wall2=""; perf_cpu2=""
-            wall_speedup=""; wall_speedup_pct=""; cpu_speedup=""; cpu_speedup_pct=""
+            local perf_rps1 perf_rps2 rps_ratio
+            perf_rps1=""; perf_rps2=""; rps_ratio=""
 
             if [[ "$DO_PERF" == "1" ]]; then
                 log VERBOSE "        running perf tests..."
                 local perf_info
                 perf_info="$(run_perf_test "$gfile" "$comp" "$tag")"
-                perf_wall1="$(echo "$perf_info" | cut -d'|' -f1)"
-                perf_cpu1="$(echo "$perf_info" | cut -d'|' -f2)"
-                perf_wall2="$(echo "$perf_info" | cut -d'|' -f3)"
-                perf_cpu2="$(echo "$perf_info" | cut -d'|' -f4)"
-                wall_speedup="$(echo "$perf_info" | cut -d'|' -f5)"
-                wall_speedup_pct="$(echo "$perf_info" | cut -d'|' -f6)"
-                cpu_speedup="$(echo "$perf_info" | cut -d'|' -f7)"
-                cpu_speedup_pct="$(echo "$perf_info" | cut -d'|' -f8)"
 
-                log VERBOSE "            wall delta: ${wall_speedup}x ($wall_speedup_pct%)"
-                log VERBOSE "            cpu  delta: ${cpu_speedup}x ($cpu_speedup_pct%)"
+                perf_rps1="$(echo "$perf_info" | cut -d'|' -f1)"
+                perf_rps2="$(echo "$perf_info" | cut -d'|' -f2)"
+                rps_ratio="$(echo "$perf_info" | cut -d'|' -f3)"
+
+                log VERBOSE "            throughput delta: ${rps_ratio}x"
             fi
             
             # write to our csv
-            echo "\"$gfile\",\"$comp\",\"$tag\",$bots,$bot_faces,$breps,$prims,$num_rays,$status,$pass_tol,$perf_wall1,$perf_cpu1,$perf_wall2,$perf_cpu2,$wall_speedup,$wall_speedup_pct,$cpu_speedup,$cpu_speedup_pct" >>"$summary_csv"
+            echo "\"$gfile\",\"$comp\",\"$tag\",$bots,$bot_faces,$breps,$prims,$num_rays,$status,$pass_tol,$perf_rps1,$perf_rps2,$rps_ratio" >>"$summary_csv"
         done
     done
 
@@ -546,6 +492,8 @@ main() {
       echo "#CONFIG,TOLS_LIST,\"$TOLS_LIST\""
       echo "#CONFIG,NUM_CPUS,\"$NUM_CPUS\""
       echo "#CONFIG,RAYS_PER_VIEW,\"$RAYS_PER_VIEW\""
+      echo "#CONFIG,PERF_SECONDS,\"$PERF_SECONDS\""
+      echo "#CONFIG,PERF_MAX_MEMORY,\"$PERF_MAX_MEMORY\""
     } >>"$summary_csv"
 
     # we're done; final log
@@ -565,6 +513,8 @@ main() {
     log "      TOLS_LIST    : $TOLS_LIST"
     log "      NUM_CPUS     : $NUM_CPUS"
     log "      RAYS_PER_VIEW: $RAYS_PER_VIEW"
+    log "      PERF_SECONDS : $PERF_SECONDS"
+    log "      PERF_MAX_MEM : $PERF_MAX_MEMORY"
     log "   Summary: $summary_csv"
 }
 
