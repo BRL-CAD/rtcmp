@@ -35,6 +35,8 @@ DO_ALL_TOLS="${DO_ALL_TOLS:-0}"     # don't stop at first failing tol
 DO_PERF="${DO_PERF:-1}"
 PERF_SECONDS="${PERF_SECONDS:-3}"               # use 3 sec for perf runs
 PERF_MAX_MEMORY="${PERF_MAX_MEMORY:-0}"         # dont limit memory for perf
+# consider a perf difference a failure if the difference > threshold percentage
+PERF_FAIL_THRESHOLD_PCT="${PERF_FAIL_THRESHOLD_PCT:-10}"
 
 # maximize cpu usage by default
 NUM_CPUS="${NUM_CPUS:-0}"
@@ -322,27 +324,33 @@ parse_perf_output() {
 
 calc_perf_metrics() {
     # Inputs: rps1 rps2
-    # Outputs: rps_ratio
+    # Outputs: rps_ratio|delta_percent|perf_status
     #
     # Throughput metric: higher is better.
     local rps1="$1"
     local rps2="$2"
 
-    awk -v r1="$rps1" -v r2="$rps2" '
+    awk \
+      -v r1="$rps1" \
+      -v r2="$rps2" \
+      -v threshold="$PERF_FAIL_THRESHOLD_PCT" '
       function isnum(x) { return (x ~ /^([0-9]*\.)?[0-9]+([eE][-+]?[0-9]+)?$/) }
       BEGIN {
         if (!isnum(r1) || !isnum(r2) || (r1+0) == 0 || (r2+0) == 0) {
-          print "|"
+          print "||UNKNOWN"
           exit
         }
 
         if ((r2+0) >= (r1+0)) {
-          ratio = r2 / r1;       # faster => positive
+          ratio = r2 / r1
         } else {
-          ratio = -(r1 / r2);    # slower => negative
+          ratio = -(r1 / r2)
         }
 
-        printf "%.6g", ratio;
+        delta = ((r2 - r1) / r1) * 100.0
+        status = (delta <= -threshold) ? "FAIL" : "PASS"
+
+        printf "%.6g|%.6f|%s", ratio, delta, status
       }
     '
 }
@@ -358,18 +366,20 @@ run_perf_test() {
     "$CMD1" --perf-seconds "$PERF_SECONDS" --perf-max_memory "$PERF_MAX_MEMORY" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out1" 2>&1
     "$CMD2" --perf-seconds "$PERF_SECONDS" --perf-max_memory "$PERF_MAX_MEMORY" -n "$NUM_CPUS" -p "$gfile" "$comp" >"$out2" 2>&1
 
-    local rps1 rps2 metrics rps_ratio
+    local rps1 rps2 metrics rps_ratio delta_percent perf_status
     rps1="$(parse_perf_output "$out1")"
     rps2="$(parse_perf_output "$out2")"
 
     metrics="$(calc_perf_metrics "$rps1" "$rps2")"
     rps_ratio="$(echo "$metrics" | cut -d'|' -f1)"
+    delta_percent="$(echo "$metrics" | cut -d'|' -f2)"
+    perf_status="$(echo "$metrics" | cut -d'|' -f3)"
 
-    if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
+    if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" && "$perf_status" == "PASS" ]]; then
         rm -f "$out1" "$out2"
     fi
 
-    echo "${rps1}|${rps2}|${rps_ratio}"
+    echo "${rps1}|${rps2}|${rps_ratio}|${delta_percent}|${perf_status}"
 }
 
 ########################################
@@ -381,11 +391,15 @@ main() {
 
     # output findings to csv
     local summary_csv="$OUTDIR/summary.csv"
-    echo "file,component,tag,bots,bot_faces,breps,brlcad_prims,num_comp_rays,compare_status,comp_status_tol,perf1_rays_per_sec_wall,perf2_rays_per_sec_wall,rays_per_sec_ratio" >"$summary_csv"
+    echo "file,component,tag,status,bots,bot_faces,breps,brlcad_prims,num_comp_rays,compare_status,comp_status_tol,perf1_rays_per_sec_wall,perf2_rays_per_sec_wall,rays_per_sec_ratio,perf_delta_percent,perf_status" >"$summary_csv"
 
     # gather .g files
     mapfile -t gfiles < <(discover_g_files || true)
     [[ "${#gfiles[@]}" -gt 0 ]] || die "No .g files found."
+    
+    # keep track of failures for final status
+    local comp_fail_count=0
+    local perf_fail_count=0
 
     # iterate for each file
     for gfile in "${gfiles[@]}"; do
@@ -433,11 +447,11 @@ main() {
             log VERBOSE "            rays : $rays"
 
             # do actual comp
-            local tol_start tol_end tol_time outcome status pass_tol
+            local tol_start tol_end tol_time outcome comp_status pass_tol
             tol_start="$(date +%s.%N)"
 
             outcome="$(comp_at_stepping_tols "$json1" "$json2" "$tag")"
-            status="$(echo "$outcome" | cut -d'|' -f1)"
+            comp_status="$(echo "$outcome" | cut -d'|' -f1)"
             pass_tol="$(echo "$outcome" | cut -d'|' -f2)"
 
             tol_end="$(date +%s.%N)"
@@ -446,7 +460,7 @@ main() {
             local num_rays
             num_rays="$(get_num_rays "$rays")"
 
-            log VERBOSE "            compare: $status (tol=$pass_tol) in $tol_time seconds"
+            log VERBOSE "            compare: $comp_status (tol=$pass_tol) in $tol_time seconds"
 
             # cleanup comp artifacts
             if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
@@ -454,8 +468,8 @@ main() {
             fi
 
             # do perf tests
-            local perf_rps1 perf_rps2 rps_ratio
-            perf_rps1=""; perf_rps2=""; rps_ratio=""
+            local perf_rps1 perf_rps2 rps_ratio perf_delta_percent perf_status
+	    perf_rps1=""; perf_rps2=""; rps_ratio=""; perf_delta_percent=""; perf_status="SKIP"
 
             if [[ "$DO_PERF" == "1" ]]; then
                 log VERBOSE "        running perf tests..."
@@ -465,12 +479,25 @@ main() {
                 perf_rps1="$(echo "$perf_info" | cut -d'|' -f1)"
                 perf_rps2="$(echo "$perf_info" | cut -d'|' -f2)"
                 rps_ratio="$(echo "$perf_info" | cut -d'|' -f3)"
+		perf_delta_percent="$(echo "$perf_info" | cut -d'|' -f4)"
+		perf_status="$(echo "$perf_info" | cut -d'|' -f5)"
 
                 log VERBOSE "            throughput delta: ${rps_ratio}x"
             fi
+	    
+	    # did either test fail?
+	    local final_status="PASS"
+	    if [[ "$comp_status" != "PASS" ]];then
+		final_status="FAIL"
+		comp_fail_count=$((comp_fail_count + 1))
+	    fi
+	    if [[ "$DO_PERF" == "1" && "$perf_status" != "PASS" ]]; then
+		final_status="FAIL"
+		perf_fail_count=$((perf_fail_count + 1))
+	    fi
             
             # write to our csv
-            echo "\"$gfile\",\"$comp\",\"$tag\",$bots,$bot_faces,$breps,$prims,$num_rays,$status,$pass_tol,$perf_rps1,$perf_rps2,$rps_ratio" >>"$summary_csv"
+            echo "\"$gfile\",\"$comp\",\"$tag\",$final_status,$bots,$bot_faces,$breps,$prims,$num_rays,$comp_status,$pass_tol,$perf_rps1,$perf_rps2,$rps_ratio,$perf_delta_percent,$perf_status" >>"$summary_csv"
         done
     done
 
@@ -494,6 +521,9 @@ main() {
       echo "#CONFIG,RAYS_PER_VIEW,\"$RAYS_PER_VIEW\""
       echo "#CONFIG,PERF_SECONDS,\"$PERF_SECONDS\""
       echo "#CONFIG,PERF_MAX_MEMORY,\"$PERF_MAX_MEMORY\""
+      echo "#CONFIG,PERF_FAIL_THRESHOLD_PCT,\"$PERF_FAIL_THRESHOLD_PCT\""
+      echo "#CONFIG,COMPARE_FAIL_COUNT,\"$comp_fail_count\""
+      echo "#CONFIG,PERF_FAIL_COUNT,\"$perf_fail_count\""
     } >>"$summary_csv"
 
     # we're done; final log
@@ -516,6 +546,14 @@ main() {
     log "      PERF_SECONDS : $PERF_SECONDS"
     log "      PERF_MAX_MEM : $PERF_MAX_MEMORY"
     log "   Summary: $summary_csv"
+
+    # return to reflect any 'failures'
+    local ret=0
+    if [[ "$comp_fail_count" -gt 0 || "$perf_fail_count" -gt 0 ]]; then
+	ret=1
+    fi
+
+    return "$ret"
 }
 
 # and away we go
