@@ -5,11 +5,9 @@
 #include <unordered_map>
 #include <optional>
 #include <fstream>
-#include <mutex>                    // needed?
+#include <mutex>                    // std::mutex (ComparisonResult::p_mtxResult)
 
-#include "json.hpp"                 // nlohmann::json
 #include "Shot.h"                   // existing Shot, Ray, Partition definitions
-#include "comp/compare_config.h"    // config struct (needed?)
 
 /* Auxiliary helper functions. Handle method specific reading / writing */
 namespace shot_utils {

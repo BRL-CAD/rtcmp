@@ -32,7 +32,7 @@
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
-#include "comp/shotset.h"
+#include "comp/compare_config.h"
 
 
 /* Defines used when setting up shotline inputs */

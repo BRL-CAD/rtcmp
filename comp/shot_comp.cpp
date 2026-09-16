@@ -2,6 +2,8 @@
 
 #include <thread>
 #include <charconv>
+#include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <brlcad/bu.h>

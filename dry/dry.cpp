@@ -25,8 +25,11 @@
 
 #include <string.h>
 
+#include <vector>
+
 #include "rtcmp.h"
 
+#include "Shot.h"
 #include "dry/dry.h"
 
 void

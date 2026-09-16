@@ -26,7 +26,7 @@
 #ifndef _RT_DIFF_H
 #define _RT_DIFF_H
 
-#include "json.hpp"
+#include <string>
 #include "rtcmp.h"
 
 extern "C" void    rt_diff_shoot(void *geom, struct xray * ray);

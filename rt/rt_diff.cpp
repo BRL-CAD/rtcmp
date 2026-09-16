@@ -66,7 +66,7 @@ miss(struct application * a)
     return 0;
 }
 
-/* Note - output data is stored in the json container */
+/* Write each shot through the thread-local JSON writer. */
 void
 rt_diff_shoot(void *g, struct xray * ray)
 {
