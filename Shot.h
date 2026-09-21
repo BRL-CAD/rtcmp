@@ -11,49 +11,57 @@ class Shot {
 public:
     class Ray {
     public:
-        explicit Ray(double tol) : tol(tol), pt{0, 0, 0}, dir{0, 0, 0} {}
-
-        point_t pt;
-        vect_t dir;
-        const double tol; // comparison tolerance
-
-        inline bool operator==(const Ray& other) const {
-            return VNEAR_EQUAL(pt, other.pt, tol) && VNEAR_EQUAL(dir, other.dir, tol);
-        }
+        point_t pt{0, 0, 0};
+        vect_t dir{0, 0, 0};
     };
 
     class Partition {
     public:
-        explicit Partition(double tol)
-            : tol(tol), region(""), in{0, 0, 0}, in_norm{0, 0, 0}, in_dist(0),
-              out{0, 0, 0}, out_norm{0, 0, 0}, out_dist(0) {}
-
         std::string region;
-        point_t in;
-        vect_t in_norm;
-        double in_dist;
-        point_t out;
-        vect_t out_norm;
-        double out_dist;
-        const double tol; // comparison tolerance
-
-        inline bool operator==(const Partition& other) const {
-            return region == other.region &&
-                   VNEAR_EQUAL(in, other.in, tol) &&
-                   VNEAR_EQUAL(in_norm, other.in_norm, tol) &&
-                   NEAR_EQUAL(in_dist, other.in_dist, tol) &&
-                   VNEAR_EQUAL(out, other.out, tol) &&
-                   VNEAR_EQUAL(out_norm, other.out_norm, tol) &&
-                   NEAR_EQUAL(out_dist, other.out_dist, tol);
-        }
+        point_t in{0, 0, 0};
+        vect_t in_norm{0, 0, 0};
+        double in_dist{0};
+        point_t out{0, 0, 0};
+        vect_t out_norm{0, 0, 0};
+        double out_dist{0};
     };
 
     // Shot members
     Ray ray;
     std::vector<Partition> parts;
 
-    inline bool operator==(const Shot& other) const {
-        return ray == other.ray && parts == other.parts;
+    // Compares this shot against 'other' within the given tolerance.
+    // Returns true if the rays (pt/dir), the partition count, and every
+    // partition (region + in/out points, normals, and dists) match at 'tol'.
+    inline bool equalWithin(const Shot& other, double tol) const {
+        // compare ray origin / direction
+        if (!VNEAR_EQUAL(ray.pt,  other.ray.pt,  tol) ||
+            !VNEAR_EQUAL(ray.dir, other.ray.dir, tol)) {
+            return false;
+        }
+
+        // compare number of partitions
+        if (parts.size() != other.parts.size()) {
+            return false;
+        }
+
+        // compare each partition
+        for (size_t i = 0; i < parts.size(); ++i) {
+            const Partition& pa = parts[i];
+            const Partition& pb = other.parts[i];
+
+            if (pa.region != pb.region ||
+                !VNEAR_EQUAL(pa.in,       pb.in,       tol) ||
+                !VNEAR_EQUAL(pa.in_norm,  pb.in_norm,  tol) ||
+                !NEAR_EQUAL( pa.in_dist,  pb.in_dist,  tol) ||
+                !VNEAR_EQUAL(pa.out,      pb.out,      tol) ||
+                !VNEAR_EQUAL(pa.out_norm, pb.out_norm, tol) ||
+                !NEAR_EQUAL( pa.out_dist, pb.out_dist, tol)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 };
 

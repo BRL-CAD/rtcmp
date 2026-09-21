@@ -35,13 +35,13 @@
 void
 dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
 {
-    Shot::Ray ray(0.0);
+    Shot::Ray ray;
     VSET(ray.pt,0,0,0);
     VSET(ray.dir,0,0,0);
 
     std::vector<Shot::Partition> parts;
     for (int i = 0; i < 4; i++) {
-	Shot::Partition part(0.0);
+	Shot::Partition part;
 	part.region = std::string("/some/nifty/little/part.r");
 	VSET(part.in,0,0,0);
 	VSET(part.out,0,0,0);

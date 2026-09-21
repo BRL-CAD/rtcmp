@@ -19,10 +19,6 @@ namespace shot_utils {
 
     // parse a NDJSON line into Shot
     Shot parse_json_shot(const std::string &line);
-
-    // compares shots values within tolerance; returns true if equal
-    // TODO: should probably be a Shot class function
-    bool shot_equal_at_tol(const Shot* shotA, const Shot* shotB, const double tolerance);
 };
 
 /* Indexes a large NDJSON shot file into (file-offset, hash) pairs */
