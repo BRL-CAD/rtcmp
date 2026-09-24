@@ -39,5 +39,7 @@ cd build_hlbvh && ./rtcmp -d ~/test.g geom.bot
 
 This will produce a summary of what was observed, as well as a plot file showing segments involved  with differences and a text file with NIRT commands for reproducing differing shotlines.
 
+Use `-d --skip-misses` when generating a result file to omit rays with no partitions from `shots.json`. The option keeps hit records and leaves `shots.rays` intact so both builds can fire the same rays. When comparing results, a recorded miss and an absent ray are treated as equal by default. A recorded hit with no matching ray remains a difference. Use `-c --report-missing-rays` to report every ray present in only one file, including recorded misses.
+
 IMPORTANT: the plot file produced is NOT a visualization of the differences, but rather the partitions that are involved with differences.  The difference themselves are often far too small to be visible graphically in a plot, or might be region name or normal based rather than an actual difference in solid thicknesses.  The plot is useful for identifying what parts of a scene are involved in producing the differences - to really understand the root cause, it is typically necessary to step through a nirt shotline in a debugger and determine where the mathematics of the answer is being altered.
 

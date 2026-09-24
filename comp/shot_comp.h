@@ -64,6 +64,7 @@ public:
     ComparisonResult(const ShotIndex& idxA,
                      const ShotIndex& idxB,
                      double tolerance,
+                     bool reportMissingRays = false,
                      int nThreads = 0);     // default (0): use all available CPU
 
     // returns total number of differences
@@ -87,6 +88,8 @@ private:
     const ShotIndex* p_idxA;
     const ShotIndex* p_idxB;
     const double p_tolerance;
+    const bool p_reportMissingRays;
+    size_t p_totalRays;
 
     // protects writes into the shared vectors
     // TODO: bu_mutex

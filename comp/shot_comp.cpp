@@ -117,32 +117,31 @@ std::optional<uint64_t> ShotIndex::lookup(uint64_t rayHash) const noexcept {
     return it->second;
 }
 
-std::optional<Shot> ShotIndex::getShot(uint64_t rayHash) const {
-    // find the offset
-    auto maybe_offset = lookup(rayHash);
-    if (!maybe_offset) 
-        return std::nullopt;
-    uint64_t offset = *maybe_offset;
-
-    // open a short-lived ifstream so we don't clobber the main index file
-    std::ifstream in(p_filename, std::ios::binary);
-    if (!in.is_open()) 
-        return std::nullopt;
-
-    // seek & read
+static std::optional<Shot> read_shot_at(std::ifstream& in, uint64_t offset) {
+    in.clear();
     in.seekg(offset, std::ios::beg);
     std::string line;
-    if (!std::getline(in, line) || line.empty()) 
+    if (!std::getline(in, line) || line.empty())
         return std::nullopt;
 
     try {
-        Shot shot = shot_utils::parse_json_shot(line);
-
-        return shot;
+        return shot_utils::parse_json_shot(line);
     } catch (...) {
         // parse error or missing fields
         return std::nullopt;
     }
+}
+
+std::optional<Shot> ShotIndex::getShot(uint64_t rayHash) const {
+    auto maybe_offset = lookup(rayHash);
+    if (!maybe_offset)
+        return std::nullopt;
+
+    // Use a separate stream so parallel lookups do not disturb the index.
+    std::ifstream in(p_filename, std::ios::binary);
+    if (!in.is_open())
+        return std::nullopt;
+    return read_shot_at(in, *maybe_offset);
 }
 
 
@@ -152,7 +151,8 @@ std::optional<Shot> ShotIndex::getShot(uint64_t rayHash) const {
 ComparisonResult::ComparisonResult(const ShotIndex& idxA,
                                    const ShotIndex& idxB,
                                    double tolerance,
-                                   int nThreads) : p_idxA(&idxA), p_idxB(&idxB), p_tolerance(tolerance) {
+                                   bool reportMissingRays,
+                                   int nThreads) : p_idxA(&idxA), p_idxB(&idxB), p_tolerance(tolerance), p_reportMissingRays(reportMissingRays), p_totalRays(idxA.orderedKeys().size()) {
     // prepare threading parameters
     const auto& keysA = p_idxA->orderedKeys();
     size_t total_indices = keysA.size();
@@ -187,11 +187,21 @@ ComparisonResult::ComparisonResult(const ShotIndex& idxA,
         th.join();
     }
 
-    // now catch any rays in B not present in A
+    // Now catch rays in B not present in A. Reuse one stream when checking
+    // whether these records are misses, since there may be many of them.
+    std::ifstream onlyBFile;
+    if (!p_reportMissingRays)
+        onlyBFile.open(p_idxB->filename(), std::ios::binary);
     for (auto const& [offsetB, hash] : p_idxB->orderedKeys()) {
         if (!p_idxA->lookup(hash)) {
-            std::lock_guard<std::mutex> lock(p_mtxResult);
-            p_onlyB.emplace_back(hash);
+            ++p_totalRays;
+            if (p_reportMissingRays) {
+                p_onlyB.emplace_back(hash);
+            } else if (onlyBFile.is_open()) {
+                auto shotB = read_shot_at(onlyBFile, offsetB);
+                if (shotB && !shotB->parts.empty())
+                    p_onlyB.emplace_back(hash);
+            }
         }
     }
 }
@@ -208,9 +218,11 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     // load from B
     auto maybe_B = p_idxB->getShot(rayHash);
     if (!maybe_B) {
-        // couldn't find in B
-        std::lock_guard<std::mutex> lock(p_mtxResult);
-        p_onlyA.emplace_back(rayHash);
+        // A recorded a miss may correspond to a skipped miss in B.
+        if (p_reportMissingRays || !shotA.parts.empty()) {
+            std::lock_guard<std::mutex> lock(p_mtxResult);
+            p_onlyA.emplace_back(rayHash);
+        }
         return;
     }
     Shot shotB = std::move(*maybe_B);
@@ -224,6 +236,7 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
 void ComparisonResult::summary(const std::string& filename) const {
     // TODO: add verbosity levels
     std::cout << "Used diff tolerance: " << p_tolerance << "\n";
+    std::ofstream(filename, std::ios::trunc).close();
 
     if (this->differences()) {
         // log summary to cout
@@ -241,14 +254,13 @@ void ComparisonResult::summary(const std::string& filename) const {
         }
 
         if (!p_onlyB.empty()) {
-            std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxB->filename() << ".\n";
+            std::cout << "\t(" << p_onlyB.size() << ") shots only in " << p_idxB->filename() << ".\n";
             this->writeOnlyB(filename);
         }
 
         // 'total'
-        int total_in_A = p_idxA->orderedKeys().size();  // assumes sizeA == sizeB
-        double percent_diff = (double)this->differences() / (double)total_in_A * 100.0;
-        std::cout << "\ttotal differences: " << this->differences() << " / " << total_in_A << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
+        double percent_diff = (double)this->differences() / (double)p_totalRays * 100.0;
+        std::cout << "\ttotal differences: " << this->differences() << " / " << p_totalRays << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
         std::cout << "See " << filename << " for full differences.\n";
     } else {
 	std::cout << "No differences found\n";
@@ -256,7 +268,7 @@ void ComparisonResult::summary(const std::string& filename) const {
 }
 
 void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
+    std::ofstream out(filename, std::ios::app);
     out << "** differing shots [" << p_differing.size() << "] **\n";
     out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_differing) {
@@ -268,7 +280,7 @@ void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
 }
 
 void ComparisonResult::writeOnlyA(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
+    std::ofstream out(filename, std::ios::app);
     out << "** shots only in " << p_idxA->filename() << " [" << p_onlyA.size() << "] **\n";
     out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_onlyA) {
@@ -279,7 +291,7 @@ void ComparisonResult::writeOnlyA(const std::string& filename) const {
 }
 
 void ComparisonResult::writeOnlyB(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
+    std::ofstream out(filename, std::ios::app);
     out << "** shots only in " << p_idxB->filename() << " [" << p_onlyB.size() << "] **\n";
     out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_onlyB) {

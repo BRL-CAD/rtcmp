@@ -55,12 +55,18 @@ public:
         buf.reserve(bytes);
     }
 
+    void setSkipMisses(bool skip) {
+        skip_misses = skip;
+    }
+
     /* Begin a new shot: open partition array, stash ray origin/dir for later
      * TODO: json.hpp .dump() writes partitions first and then ray info
      *       which is the pattern we're copying. Need to see if we can just
      *       write ray info first so we don't have to stash
      */
     inline void beginShot(const struct xray &ray) {
+        shot_start = buf.size();
+        has_partitions = false;
         buf.append("{\"partitions\":[");
 
         // stash the ray for endShot()
@@ -74,6 +80,7 @@ public:
 
     /* append a partition */
     inline void addPartition(struct partition* pp) {
+        has_partitions = true;
         char tmp[1024];
         int n = std::snprintf(tmp, sizeof(tmp),
             "{\"in_dist\":\"%s\","
@@ -97,6 +104,11 @@ public:
     /* End the shot: close partitions array, append ray fields,
      *               then hand off buffer to global collector */
     inline void endShot() {
+        if (skip_misses && !has_partitions) {
+            buf.resize(shot_start);
+            return;
+        }
+
         // replace trailing comma with closing bracket
         if (!buf.empty() && buf.back() == ',') 
             buf.back() = ']';
@@ -130,6 +142,9 @@ private:
     ~Writer() = default;
 
     std::string buf;
+    size_t shot_start = 0;
+    bool has_partitions = false;
+    bool skip_misses = false;
     double ray_pt[3];
     double ray_dir[3];
 

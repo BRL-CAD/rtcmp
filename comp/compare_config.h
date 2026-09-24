@@ -7,6 +7,8 @@
 /* useful information when comparing shotsets */
 struct CompareConfig {
     double tol = SMALL_FASTF;					    // comparison tolerance
+    bool skip_misses = false;					    // omit rays with no partitions from diff JSON output
+    bool report_missing_rays = false;			    // compare: report absent records even when the present record is a miss
 
     // input file names
     std::string in_ray_file = std::string("");			    // if supplied: use .rays file for results generation

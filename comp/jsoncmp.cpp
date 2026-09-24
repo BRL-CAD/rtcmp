@@ -26,7 +26,7 @@ void do_comp(const char *file1, const char *file2, const CompareConfig& config) 
         return;
     }
 
-    ComparisonResult results(s1, s2, config.tol);
+    ComparisonResult results(s1, s2, config.tol, config.report_missing_rays);
     results.summary(config.nirt_file);
 }
 
@@ -186,8 +186,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	struct xray* rays;
 	int total_rays;
 	int nthreads;
+	bool skip_misses;
 	void (*shoot)(void*, struct xray*);
-    } targs { apps, rays, total_rays, nthreads, shoot };
+    } targs { apps, rays, total_rays, nthreads, dinfo.skip_misses, shoot };
 
     auto worker = [](int cpu, void* data) {
 	cpu--;	// cpu is 1-indexed
@@ -197,6 +198,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
 	// unpack data
 	ThreadArgs* ta = (ThreadArgs*) data;
+	tsj::Writer::instance().setSkipMisses(ta->skip_misses);
 	
 	// split in contiguous blocks
 	int per = ta->total_rays / ta->nthreads;
