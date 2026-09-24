@@ -3,8 +3,10 @@
 
 #include <thread>
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <charconv>
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include <brlcad/bu.h>
@@ -44,6 +46,7 @@ ShotIndex::~ShotIndex() {
 
 // basic getters
 bool ShotIndex::isValid() const noexcept { return p_valid; }
+bool ShotIndex::hasSegments() const noexcept { return p_has_segments; }
 const std::vector<std::pair<uint64_t,uint64_t>>& ShotIndex::orderedKeys() const noexcept { return p_ordered_keys; }
 std::string ShotIndex::filename() const noexcept { return p_filename; }
 
@@ -57,6 +60,7 @@ void ShotIndex::p_buildIndex() {
     p_offset_map.clear();
 
     std::string line;
+    bool schema_seen = false;
     uint64_t offset = 0;
     while (true) {
 	offset = p_file.tellg();
@@ -68,6 +72,15 @@ void ShotIndex::p_buildIndex() {
 	    continue;
 
 	try {
+            const bool has_segments = line.find("\"segments\":[") != std::string::npos;
+            if (schema_seen && has_segments != p_has_segments) {
+                std::cerr << "Mixed primitive capture formats in " << p_filename << std::endl;
+                p_valid = false;
+                return;
+            }
+            p_has_segments = has_segments;
+            schema_seen = true;
+            if (has_segments) shot_utils::parse_json_shot(line);
 	    Shot::Ray ray = shot_utils::parse_json_ray(line);
 	    uint64_t key = shot_utils::hash_ray(ray);
 
@@ -98,8 +111,8 @@ void ShotIndex::p_buildIndex() {
 	    p_ordered_keys.emplace_back(offset, key);
 	} catch (const std::exception& e) {
 	    std::cerr << "ShotIndex file parse error at offset " << offset << ": " << e.what() << std::endl;
-            // lazy - keep going if we can
-            continue;
+            p_valid = false;
+            return;
 	}
     }
 
@@ -202,7 +215,7 @@ ComparisonResult::ComparisonResult(const ShotIndex& idxA,
                 p_onlyB.emplace_back(hash);
             } else if (onlyBFile.is_open()) {
                 auto shotB = read_shot_at(onlyBFile, offsetB);
-                if (shotB && !shotB->parts.empty())
+                if (shotB && (!shotB->parts.empty() || !shotB->segments.empty()))
                     p_onlyB.emplace_back(hash);
             }
         }
@@ -222,7 +235,7 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     auto maybe_B = p_idxB->getShot(rayHash);
     if (!maybe_B) {
         // A recorded a miss may correspond to a skipped miss in B.
-        if (p_reportMissingRays || !shotA.parts.empty()) {
+        if (p_reportMissingRays || !shotA.parts.empty() || !shotA.segments.empty()) {
             std::lock_guard<std::mutex> lock(p_mtxResult);
             p_onlyA.emplace_back(rayHash);
         }
@@ -230,9 +243,13 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     }
     Shot shotB = std::move(*maybe_B);
 
-    if (!shot_utils::shot_equal_at_tol(&shotA, &shotB, p_tolerance)) {
+    unsigned kind = !shot_utils::shot_equal_at_tol(&shotA, &shotB, p_tolerance) ? PARTITIONS_DIFFER : 0U;
+    if (p_idxA->hasSegments() &&
+        !shot_utils::segments_equal_at_tol(&shotA, &shotB, p_tolerance)) kind |= SEGMENTS_DIFFER;
+    if (kind) {
         std::lock_guard<std::mutex> lock(p_mtxResult);
         p_differing.emplace_back(rayHash);
+        p_diff_kind.emplace(rayHash, kind);
     }
 }
 
@@ -260,6 +277,8 @@ void ComparisonResult::filterGrazing(GrazingDetector& detector)
 {
     auto filter = [&](std::vector<uint64_t>& keys, bool inA, bool inB) {
         keys.erase(std::remove_if(keys.begin(), keys.end(), [&](uint64_t key) {
+            auto kind = p_diff_kind.find(key);
+            if (kind != p_diff_kind.end() && (kind->second & SEGMENTS_DIFFER)) return false;
             auto shotA = inA ? p_idxA->getShot(key) : std::optional<Shot>{};
             auto shotB = inB ? p_idxB->getShot(key) : std::optional<Shot>{};
             if ((inA && !shotA) || (inB && !shotB))
@@ -297,7 +316,16 @@ void ComparisonResult::summary(const std::string& filename) const {
 
         // categorize differences
         if (!p_differing.empty()) {
-            std::cout << "\t(" << p_differing.size() << ") shots with unequal hit data.\n";
+            size_t evaluated = 0, primitive = 0, both = 0;
+            for (uint64_t key : p_differing) {
+                switch (p_diff_kind.at(key)) {
+                    case PARTITIONS_DIFFER: ++evaluated; break;
+                    case SEGMENTS_DIFFER: ++primitive; break;
+                    case PARTITIONS_DIFFER | SEGMENTS_DIFFER: ++both; break;
+                }
+            }
+            std::cout << "\t(" << evaluated << ") evaluated-only, (" << primitive
+                      << ") primitive-only, (" << both << ") both-level differences.\n";
             this->writeOnlyDiffering(filename);
         }
 
@@ -325,10 +353,11 @@ void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
     out << "** differing shots [" << p_differing.size() << "] **\n";
     out << std::fixed << std::setprecision(17);
     for (uint64_t hash : p_differing) {
-        // TODO: is this all we want to log for differing?
         Shot shot = p_idxA->getShot(hash).value();
         out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
+               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z]
+               << " # " << (p_diff_kind.at(hash) == PARTITIONS_DIFFER ? "evaluated" :
+                      p_diff_kind.at(hash) == SEGMENTS_DIFFER ? "primitive" : "both") << "\n";
     }
 }
 
@@ -492,6 +521,44 @@ Shot shot_utils::parse_json_shot(const std::string &jsonLine) {
         }
     }
 
+    if (jsonLine.find("\"segments\":[") != std::string::npos) {
+        auto json = nlohmann::json::parse(jsonLine);
+        auto number = [](const nlohmann::json &value) {
+            const std::string s = value.get<std::string>();
+            size_t end = 0;
+            double result = std::stod(s, &end);
+            if (end != s.size()) throw std::invalid_argument("invalid segment number");
+            return result;
+        };
+        auto xyz = [&](const nlohmann::json &value, double *v) {
+            v[X] = number(value.at("X"));
+            v[Y] = number(value.at("Y"));
+            v[Z] = number(value.at("Z"));
+        };
+        for (const auto &item : json.at("segments")) {
+            Shot::Segment seg;
+            seg.primitive = item.at("primitive").get<std::string>();
+            const auto &matrix = item.at("transform");
+            if (matrix.size() != seg.transform.size()) throw std::invalid_argument("invalid segment transform");
+            for (size_t i = 0; i < seg.transform.size(); ++i) seg.transform[i] = number(matrix.at(i));
+            seg.in_dist = number(item.at("in_dist"));
+            seg.out_dist = number(item.at("out_dist"));
+            seg.geometry_valid = !item.at("in_norm").is_null();
+            if (seg.geometry_valid) {
+                xyz(item.at("in_norm"), seg.in_norm);
+                xyz(item.at("out_norm"), seg.out_norm);
+                xyz(item.at("in_pt"), seg.in);
+                xyz(item.at("out_pt"), seg.out);
+            } else if (!item.at("out_norm").is_null() || !item.at("in_pt").is_null() ||
+                       !item.at("out_pt").is_null()) {
+                throw std::invalid_argument("inconsistent segment geometry");
+            }
+            seg.in_surfno = item.at("in_surfno").get<int>();
+            seg.out_surfno = item.at("out_surfno").get<int>();
+            shot.segments.push_back(std::move(seg));
+        }
+    }
+
     /* ray pt and dir */
     Shot::Ray ray = shot_utils::parse_json_ray(jsonLine);
     VMOVE(shot.ray.dir, ray.dir);
@@ -529,4 +596,53 @@ bool shot_utils::shot_equal_at_tol(const Shot* shotA, const Shot* shotB, const d
     }
 
     return true;
+}
+
+bool shot_utils::segments_equal_at_tol(const Shot* a, const Shot* b, double tol)
+{
+    if (a->segments.size() != b->segments.size()) return false;
+    auto near_number = [tol](double x, double y) {
+        if (std::isnan(x) || std::isnan(y)) return std::isnan(x) && std::isnan(y);
+        if (std::isinf(x) || std::isinf(y))
+            return std::isinf(x) && std::isinf(y) && (std::signbit(x) == std::signbit(y));
+        return NEAR_EQUAL(x, y, tol);
+    };
+    auto near_xyz = [&](const double *x, const double *y) {
+        return near_number(x[X], y[X]) && near_number(x[Y], y[Y]) &&
+               near_number(x[Z], y[Z]);
+    };
+    auto equal = [&](const Shot::Segment &x, const Shot::Segment &y) {
+        if (x.primitive != y.primitive || x.in_surfno != y.in_surfno ||
+            x.out_surfno != y.out_surfno || x.geometry_valid != y.geometry_valid) return false;
+        for (size_t i = 0; i < x.transform.size(); ++i)
+            if (!near_number(x.transform[i], y.transform[i])) return false;
+        if (!near_number(x.in_dist, y.in_dist) || !near_number(x.out_dist, y.out_dist)) return false;
+        return !x.geometry_valid || (near_xyz(x.in, y.in) && near_xyz(x.out, y.out) &&
+               near_xyz(x.in_norm, y.in_norm) && near_xyz(x.out_norm, y.out_norm));
+    };
+    const size_t count = a->segments.size();
+    std::vector<int> matched(count, -1);
+    std::function<bool(size_t, std::vector<bool>&)> find_match = [&](size_t i, std::vector<bool> &seen) {
+        for (size_t j = 0; j < count; ++j) {
+            if (seen[j] || !equal(a->segments[i], b->segments[j])) continue;
+            seen[j] = true;
+            if (matched[j] < 0 || find_match(static_cast<size_t>(matched[j]), seen)) {
+                matched[j] = static_cast<int>(i);
+                return true;
+            }
+        }
+        return false;
+    };
+    for (size_t i = 0; i < count; ++i) {
+        std::vector<bool> seen(count, false);
+        if (!find_match(i, seen)) return false;
+    }
+    return true;
+}
+
+
+bool Shot::operator==(const Shot& other) const
+{
+    return shot_utils::shot_equal_at_tol(this, &other, SMALL_FASTF) &&
+        shot_utils::segments_equal_at_tol(this, &other, SMALL_FASTF);
 }

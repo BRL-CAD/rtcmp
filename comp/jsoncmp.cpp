@@ -1,4 +1,5 @@
 #include <fstream>
+#include <brlcad/bu/env.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -55,6 +56,10 @@ int do_comp(const char *file1, const char *file2, const CompareConfig& config) {
         return -1;
     }
 
+    if (s1.hasSegments() != s2.hasSegments()) {
+        std::cerr << "Primitive data is present in only one input file" << std::endl;
+        return -1;
+    }
     ComparisonResult results(s1, s2, config.tol, config.report_missing_rays);
     if (detector) {
         results.filterGrazing(*detector);
@@ -174,7 +179,7 @@ struct xray* create_ray_array(int* total_rays, int rays_per_view,
  * TODO:
  *	* Shoot on a grid set instead of a single ray.
  */
-void
+int
 do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int rays_per_view,
 	void *(*constructor) (const char *, int, const char **, std::string),
 	int (*getbox) (void *, point_t *, point_t *),
@@ -189,7 +194,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     /* base instance for this run */
     void* base_inst = constructor(*argv, argc-1, argv+1, dinfo.json_ofile);
     if (base_inst == NULL) {
-	return;
+	return 1;
     }
 
     struct application* base_app = (struct application*)base_inst;
@@ -201,9 +206,32 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     VADD2SCALE(bbox[2], bbox[0], bbox[1], 0.5);
     // allocs expeceted rays; MUST FREE */
     struct xray* rays = create_ray_array(&total_rays, rays_per_view, dinfo.in_ray_file, dinfo.ray_file, bbox, radius);
+    if (!rays) {
+        destructor(base_inst);
+        return 1;
+    }
 
     // prep file for writing; erase any existing contents with trunc
     std::ofstream f(dinfo.json_ofile, std::ios::binary | std::ios::trunc);
+    if (!f) {
+        std::cerr << "Unable to open output file " << dinfo.json_ofile << "\n";
+        destructor(base_inst);
+        bu_free(rays, "ray buffer");
+        return 1;
+    }
+    f.close();
+    if (dinfo.primitive_hits) {
+	if (bu_setenv("LIBRT_RTCMP_FILE", dinfo.json_ofile.c_str(), 1) != 0 ||
+	    bu_setenv("LIBRT_RTCMP_PRIMITIVES", "1", 1) != 0 ||
+	    bu_setenv("LIBRT_RTCMP_SKIP_MISSES", dinfo.skip_misses ? "1" : "0", 1) != 0) {
+	    std::cerr << "Unable to configure primitive capture\n";
+            destructor(base_inst);
+            bu_free(rays, "ray buffer");
+	    return 1;
+	}
+    }
+    const unsigned int previous_debug = rt_debug;
+    if (dinfo.primitive_hits) rt_debug |= RT_DEBUG_RTCMP;
 
     /* multithreading? */
     // we need one application* and resrouces per thread
@@ -222,18 +250,18 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	int total_rays;
 	int nthreads;
 	bool skip_misses;
+	bool primitive_hits;
 	void (*shoot)(void*, struct xray*);
-    } targs { apps, rays, total_rays, nthreads, dinfo.skip_misses, shoot };
+    } targs { apps, rays, total_rays, nthreads, dinfo.skip_misses, dinfo.primitive_hits, shoot };
 
     auto worker = [](int cpu, void* data) {
 	cpu--;	// cpu is 1-indexed
 	
-	// reserve buffer for this thread
-	tsj::Writer::instance().reserve(100 * 1024 * 1024);  // approx 100MB per thread
-
 	// unpack data
 	ThreadArgs* ta = (ThreadArgs*) data;
-	tsj::Writer::instance().setSkipMisses(ta->skip_misses);
+	if (!ta->primitive_hits)
+	    tsj::Writer::instance().reserve(100 * 1024 * 1024);  // approx 100MB per thread
+	if (!ta->primitive_hits) tsj::Writer::instance().setSkipMisses(ta->skip_misses);
 	
 	// split in contiguous blocks
 	int per = ta->total_rays / ta->nthreads;
@@ -245,11 +273,18 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 
 	// do the shooting for this block of rays
 	for (int i = base; i < end; i++) {
-	    ta->shoot((void*)&ta->apps[cpu], &ta->rays[i]);
+	    if (ta->primitive_hits) {
+		struct application *app = &ta->apps[cpu];
+		VMOVE(app->a_ray.r_pt, ta->rays[i].r_pt);
+		VMOVE(app->a_ray.r_dir, ta->rays[i].r_dir);
+		rt_shootray(app);
+	    } else {
+		ta->shoot((void*)&ta->apps[cpu], &ta->rays[i]);
+	    }
 	}
 
 	// make sure thread collection buffer is synced
-	tsj::Writer::instance().syncToGlobal();
+	if (!ta->primitive_hits) tsj::Writer::instance().syncToGlobal();
     };
 
     /* do the work */
@@ -259,11 +294,19 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	bu_parallel(worker, nthreads, (void*)&targs);
 
     // write all collected data
-    tsj::Writer::Collector::flushToFile(dinfo.json_ofile);
+    int capture_status = 0;
+    if (dinfo.primitive_hits) {
+	capture_status = rt_rtcmp_capture_flush();
+	rt_debug = previous_debug;
+        if (capture_status) std::cerr << "Primitive capture failed\n";
+    } else {
+	tsj::Writer::Collector::flushToFile(dinfo.json_ofile);
+    }
     
     /* cleanup */
     destructor(base_inst);
     bu_free(rays, "ray buffer");
+    return capture_status ? 1 : 0;
 }
 
 

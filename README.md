@@ -39,7 +39,9 @@ cd build_hlbvh && ./rtcmp -d ~/test.g geom.bot
 
 This will produce a summary of what was observed, as well as a plot file showing segments involved  with differences and a text file with NIRT commands for reproducing differing shotlines.
 
-Use `-d --skip-misses` when generating a result file to omit rays with no partitions from `shots.json`. The option keeps hit records and leaves `shots.rays` intact so both builds can fire the same rays. When comparing results, a recorded miss and an absent ray are treated as equal by default. A recorded hit with no matching ray remains a difference. Use `-c --report-missing-rays` to report every ray present in only one file, including recorded misses.
+Use `-d --primitive-hits` to include pre-Boolean primitive segments in each ray record alongside evaluated region partitions. Segment records include primitive identity, transform, entry and exit distances, points, outward normals, and surface numbers. Points and normals are null for malformed segments that cannot be evaluated safely. This mode also records rays whose primitive hits are removed by Boolean evaluation. `-c` automatically compares segments when both input files include them and reports primitive-only, evaluated-only, and combined differences. Comparing a primitive-enabled file with a legacy file is an error. In primitive mode, `--skip-misses` omits only rays with neither segments nor partitions.
+
+Without `--primitive-hits`, use `-d --skip-misses` when generating a result file to omit rays with no partitions from `shots.json`. The option keeps hit records and leaves `shots.rays` intact so both builds can fire the same rays. When comparing results, a recorded miss and an absent ray are treated as equal by default. A recorded hit with no matching ray remains a difference. Use `-c --report-missing-rays` to report every ray present in only one file, including recorded misses.
 
 To filter likely grazing differences when the geometry is available, provide it during comparison:
 

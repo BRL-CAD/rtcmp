@@ -55,7 +55,7 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, dou
  * raytracing results.  This will produce a sizable output file, and
  * may run rather slowly since shotline intersection data is being captured
  * for output. */
-void
+int
 do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
 	void*(*constructor)(const char *, int, const char**, std::string),
 	int(*getbox)(void *, point_t *, point_t *),

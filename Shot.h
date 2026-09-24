@@ -1,6 +1,7 @@
 #ifndef SHOT_H
 #define SHOT_H
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -48,13 +49,22 @@ public:
         }
     };
 
+    struct Segment {
+        std::string primitive;
+        std::array<double, ELEMENTS_PER_MAT> transform{};
+        point_t in{}, out{};
+        vect_t in_norm{}, out_norm{};
+        double in_dist = 0.0, out_dist = 0.0;
+        int in_surfno = 0, out_surfno = 0;
+        bool geometry_valid = true;
+    };
+
     // Shot members
     Ray ray;
     std::vector<Partition> parts;
+    std::vector<Segment> segments;
 
-    inline bool operator==(const Shot& other) const {
-        return ray == other.ray && parts == other.parts;
-    }
+    bool operator==(const Shot& other) const;
 };
 
 #endif // SHOT_H

@@ -75,6 +75,7 @@ main(int argc, char **argv)
 	    ("dry-run",            "Test overhead costs by doing a run that doesn't calculate intersections", cxxopts::value<bool>(opts.dry_run))
 	    ("p,performance-test", "Run tests for raytracing speed (doesn't store and write results)", cxxopts::value<bool>(opts.performance_run))
 	    ("d,difference-test",  "Run tests to generate input files for difference comparisons", cxxopts::value<bool>(opts.diff_run))
+	    ("primitive-hits",     "(difference run) Include primitive segments before Boolean evaluation", cxxopts::value<bool>(opts.compare_opts.primitive_hits))
 	    ("skip-misses",        "(difference run) Omit rays with no partitions from JSON output", cxxopts::value<bool>(opts.compare_opts.skip_misses))
 	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(opts.compare_opts.tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(opts.compare_run))
@@ -126,6 +127,12 @@ main(int argc, char **argv)
     av[0] = opts.non_opts[0].c_str();
     av[1] = opts.non_opts[1].c_str();
 
+    if (opts.compare_opts.primitive_hits &&
+        (opts.compare_run || !opts.diff_run || opts.use_tie)) {
+        std::cerr << "--primitive-hits requires a regular rt difference run (-d)\n";
+        return -1;
+    }
+
     /* Compare run (compare supplied result files) */
     if (opts.compare_run) {
 	return do_comp(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts);
@@ -161,7 +168,8 @@ main(int argc, char **argv)
     } else {
 	/* Regular rt */
 	if (opts.diff_run) {
-	    do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
+	    int diff_status = do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
+            if (diff_status) return diff_status;
 	}
 	if (opts.performance_run) {
 	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);

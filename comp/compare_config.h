@@ -7,6 +7,7 @@
 /* useful information when comparing shotsets */
 struct CompareConfig {
     double tol = SMALL_FASTF;					    // comparison tolerance
+    bool primitive_hits = false;				    // include pre-Boolean primitive segments in diff output
     bool skip_misses = false;					    // omit rays with no partitions from diff JSON output
     bool report_missing_rays = false;			    // compare: report absent records even when the present record is a miss
     std::string grazing_geometry;			    // compare: geometry file used for nearby-ray checks

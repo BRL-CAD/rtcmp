@@ -25,6 +25,7 @@ namespace shot_utils {
     // compares shots values within tolerance; returns true if equal
     // TODO: should probably be a Shot class function
     bool shot_equal_at_tol(const Shot* shotA, const Shot* shotB, const double tolerance);
+    bool segments_equal_at_tol(const Shot* shotA, const Shot* shotB, double tolerance);
 };
 
 /* Indexes a large NDJSON shot file into (file-offset, hash) pairs */
@@ -35,6 +36,7 @@ public:
 
     // returns whether shotIndex loaded indices successfully from filename
     bool isValid() const noexcept;
+    bool hasSegments() const noexcept;
 
     // returns filename for associated shotIndex
     std::string filename() const noexcept;
@@ -51,6 +53,7 @@ private:
     std::string p_filename;
     std::ifstream p_file;
     bool p_valid{false};
+    bool p_has_segments{false};
 
     std::vector<std::pair<uint64_t, uint64_t>> p_ordered_keys;  // <file_offset, ray_hash>
     std::unordered_map<uint64_t, uint64_t> p_offset_map;        // hashed ray pt+dir -> file offset
@@ -86,6 +89,9 @@ public:
 private:
     // results (stored ray hash)
     std::vector<uint64_t> p_differing;  // same ray-hash but mismatched data
+    static constexpr unsigned PARTITIONS_DIFFER = 1U;
+    static constexpr unsigned SEGMENTS_DIFFER = 2U;
+    std::unordered_map<uint64_t, unsigned> p_diff_kind;
     std::vector<uint64_t> p_onlyA;      // in A but not in B
     std::vector<uint64_t> p_onlyB;      // in B but not in A
 
