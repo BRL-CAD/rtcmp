@@ -9,6 +9,10 @@ struct CompareConfig {
     double tol = SMALL_FASTF;					    // comparison tolerance
     bool skip_misses = false;					    // omit rays with no partitions from diff JSON output
     bool report_missing_rays = false;			    // compare: report absent records even when the present record is a miss
+    std::string grazing_geometry;			    // compare: geometry file used for nearby-ray checks
+    std::string grazing_object;			    // compare: object to raytrace
+    double grazing_radius = 0.0;			    // mm; 0 uses 1e-7 of the prepared model radius
+    int grazing_samples = 8;				    // rays on the circular ring
 
     // input file names
     std::string in_ray_file = std::string("");			    // if supplied: use .rays file for results generation

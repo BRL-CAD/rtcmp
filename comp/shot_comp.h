@@ -58,6 +58,8 @@ private:
     void p_buildIndex();                                        // main driver: iterate over file and load map
 };
 
+class GrazingDetector;
+
 /* fully compare two ShotIndex at tolerance */
 class ComparisonResult {
 public:
@@ -66,6 +68,9 @@ public:
                      double tolerance,
                      bool reportMissingRays = false,
                      int nThreads = 0);     // default (0): use all available CPU
+
+    // Remove differences where nearby rays change the implicated region hit counts.
+    void filterGrazing(GrazingDetector& detector);
 
     // returns total number of differences
     int differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
@@ -90,6 +95,7 @@ private:
     const double p_tolerance;
     const bool p_reportMissingRays;
     size_t p_totalRays;
+    size_t p_filteredGrazing = 0;
 
     // protects writes into the shared vectors
     // TODO: bu_mutex

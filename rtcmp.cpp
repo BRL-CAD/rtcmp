@@ -79,6 +79,10 @@ main(int argc, char **argv)
 	    ("t,tolerance",        "Numerical tolerance to use when comparing numbers", cxxopts::value<double>(opts.compare_opts.tol))
 	    ("c,compare",          "Compare two JSON results files", cxxopts::value<bool>(opts.compare_run))
 	    ("report-missing-rays", "(compare run) Report absent ray records even when the recorded ray missed", cxxopts::value<bool>(opts.compare_opts.report_missing_rays))
+	    ("grazing-geometry",   "(compare run) Geometry file for optional grazing-ray filtering", cxxopts::value<std::string>(opts.compare_opts.grazing_geometry))
+	    ("grazing-object",     "(compare run) Object to trace for grazing-ray filtering", cxxopts::value<std::string>(opts.compare_opts.grazing_object))
+	    ("grazing-radius",     "(compare run) Probe ring radius in mm (default: 1e-7 of model radius)", cxxopts::value<double>(opts.compare_opts.grazing_radius))
+	    ("grazing-samples",    "(compare run) Number of nearby rays on the ring (default: 8)", cxxopts::value<int>(opts.compare_opts.grazing_samples))
 	    ("rays-per-view",      "Number of rays to fire per view (default is 1e5)", cxxopts::value<int>(opts.rays_per_view))
 	    ("perf-seconds",       "(perf run)Number of seconds to run (default is 20s)", cxxopts::value<double>(opts.perf_seconds))
 	    ("perf-max_memory",    "(perf run)Limit memory in a perf run (default '0' does not limit memory)", cxxopts::value<size_t>(opts.perf_max_memory))
@@ -124,10 +128,13 @@ main(int argc, char **argv)
 
     /* Compare run (compare supplied result files) */
     if (opts.compare_run) {
-	do_comp(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts);
+	return do_comp(opts.non_opts[0].c_str(), opts.non_opts[1].c_str(), opts.compare_opts);
+    }
 
-	// this is a special run - we're done
-	return 0;
+    if (!opts.compare_opts.grazing_geometry.empty() || !opts.compare_opts.grazing_object.empty() ||
+        opts.compare_opts.grazing_radius != 0.0 || opts.compare_opts.grazing_samples != 8) {
+        std::cerr << "Grazing options require -c comparison mode\n";
+        return -1;
     }
 
     /* Dry run (no shotlining, establishes overhead costs - diff run is a no-op) */

@@ -23,6 +23,7 @@ include_directories(
 set(rtcmp_SRCS
   dry/dry.cpp
   comp/jsoncmp.cpp
+  comp/grazing.cpp
   comp/shotset.cpp
   comp/shot_comp.cpp
   perfcomp.cpp

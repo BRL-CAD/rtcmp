@@ -5,29 +5,64 @@
 #include <limits>
 #include <queue>
 #include <set>
+#include <cmath>
+#include <memory>
 #include <time.h>
 
 #include "rtcmp.h"
 #include "shotset.h"
 #include "shot_comp.h"
 #include "jsonwriter.hpp"
+#include "grazing.h"
 
-void do_comp(const char *file1, const char *file2, const CompareConfig& config) {
+int do_comp(const char *file1, const char *file2, const CompareConfig& config) {
+    if (config.grazing_geometry.empty() != config.grazing_object.empty()) {
+        std::cerr << "Both --grazing-geometry and --grazing-object are required" << std::endl;
+        return -1;
+    }
+
+    if (config.grazing_geometry.empty() &&
+        (config.grazing_radius != 0.0 || config.grazing_samples != 8)) {
+        std::cerr << "--grazing-radius and --grazing-samples require grazing geometry" << std::endl;
+        return -1;
+    }
+
+    std::unique_ptr<GrazingDetector> detector;
+    if (!config.grazing_geometry.empty()) {
+        if (!std::isfinite(config.grazing_radius) || config.grazing_radius < 0.0 ||
+            config.grazing_samples < 3 || config.grazing_samples > 1024) {
+            std::cerr << "Grazing radius must be nonnegative and samples must be between 3 and 1024" << std::endl;
+            return -1;
+        }
+        detector = std::make_unique<GrazingDetector>(config.grazing_geometry,
+            config.grazing_object, config.grazing_radius, config.grazing_samples);
+        if (!detector->valid()) {
+            std::cerr << detector->error() << std::endl;
+            return -1;
+        }
+    }
+
     // build indexes for both shot files
     ShotIndex s1(file1);
     if (!s1.isValid()) {
         std::cerr << "Failed to index " << file1 << std::endl;
-        return; // or handle error appropriately?
+        return -1;
     }
 
     ShotIndex s2(file2);
     if (!s2.isValid()) {
         std::cerr << "Failed to index " << file2 << std::endl;
-        return;
+        return -1;
     }
 
     ComparisonResult results(s1, s2, config.tol, config.report_missing_rays);
+    if (detector) {
+        results.filterGrazing(*detector);
+        std::cout << "Grazing probe radius: " << detector->radius() << " mm ("
+                  << detector->sampleCount() << " nearby rays)\n";
+    }
     results.summary(config.nirt_file);
+    return 0;
 }
 
 /*

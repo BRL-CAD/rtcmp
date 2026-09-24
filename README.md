@@ -41,5 +41,14 @@ This will produce a summary of what was observed, as well as a plot file showing
 
 Use `-d --skip-misses` when generating a result file to omit rays with no partitions from `shots.json`. The option keeps hit records and leaves `shots.rays` intact so both builds can fire the same rays. When comparing results, a recorded miss and an absent ray are treated as equal by default. A recorded hit with no matching ray remains a difference. Use `-c --report-missing-rays` to report every ray present in only one file, including recorded misses.
 
+To filter likely grazing differences when the geometry is available, provide it during comparison:
+
+```sh
+./rtcmp -c --grazing-geometry model.g --grazing-object geom \
+    results1.json results2.json
+```
+
+This re-shoots each differing ray whose region hit count changed, plus eight parallel rays on a small circle around it. If the implicated region's hit count varies across the circle, rtcmp counts the difference as likely grazing and omits it from `diff.nrt`. The default circle radius is `1e-7` times the prepared model radius; `--grazing-radius` sets an absolute radius in millimeters and `--grazing-samples` changes the number of rays on the circle. This is a heuristic using the BRL-CAD raytracer linked to the comparison executable. Differences in normals or distances without a change in region hit count remain in the report. Comparisons without the geometry options do not re-shoot rays.
+
 IMPORTANT: the plot file produced is NOT a visualization of the differences, but rather the partitions that are involved with differences.  The difference themselves are often far too small to be visible graphically in a plot, or might be region name or normal based rather than an actual difference in solid thicknesses.  The plot is useful for identifying what parts of a scene are involved in producing the differences - to really understand the root cause, it is typically necessary to step through a nirt shotline in a debugger and determine where the mathematics of the answer is being altered.
 

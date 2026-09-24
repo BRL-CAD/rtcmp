@@ -1,6 +1,9 @@
 #include "shot_comp.h"
+#include "grazing.h"
 
 #include <thread>
+#include <algorithm>
+#include <map>
 #include <charconv>
 #include <iostream>
 #include <sstream>
@@ -233,9 +236,59 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     }
 }
 
+static std::vector<std::string> changed_regions(const Shot* a, const Shot* b)
+{
+    std::map<std::string, int> counts;
+    if (a) {
+        for (const auto& part : a->parts)
+            ++counts[part.region];
+    }
+    if (b) {
+        for (const auto& part : b->parts)
+            --counts[part.region];
+    }
+
+    std::vector<std::string> changed;
+    for (const auto& [region, count] : counts) {
+        if (count != 0)
+            changed.push_back(region);
+    }
+    return changed;
+}
+
+void ComparisonResult::filterGrazing(GrazingDetector& detector)
+{
+    auto filter = [&](std::vector<uint64_t>& keys, bool inA, bool inB) {
+        keys.erase(std::remove_if(keys.begin(), keys.end(), [&](uint64_t key) {
+            auto shotA = inA ? p_idxA->getShot(key) : std::optional<Shot>{};
+            auto shotB = inB ? p_idxB->getShot(key) : std::optional<Shot>{};
+            if ((inA && !shotA) || (inB && !shotB))
+                return false;
+
+            const Shot* a = shotA ? &*shotA : nullptr;
+            const Shot* b = shotB ? &*shotB : nullptr;
+            auto regions = changed_regions(a, b);
+            if (regions.empty())
+                return false;
+
+            const Shot::Ray& ray = a ? a->ray : b->ray;
+            if (!detector.unstable(ray, regions))
+                return false;
+            ++p_filteredGrazing;
+            return true;
+        }), keys.end());
+    };
+
+    filter(p_differing, true, true);
+    filter(p_onlyA, true, false);
+    filter(p_onlyB, false, true);
+}
+
 void ComparisonResult::summary(const std::string& filename) const {
     // TODO: add verbosity levels
     std::cout << "Used diff tolerance: " << p_tolerance << "\n";
+    if (p_filteredGrazing)
+        std::cout << "Filtered " << p_filteredGrazing << " likely grazing shot differences.\n";
     std::ofstream(filename, std::ios::trunc).close();
 
     if (this->differences()) {
@@ -263,7 +316,7 @@ void ComparisonResult::summary(const std::string& filename) const {
         std::cout << "\ttotal differences: " << this->differences() << " / " << p_totalRays << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
         std::cout << "See " << filename << " for full differences.\n";
     } else {
-	std::cout << "No differences found\n";
+        std::cout << (p_filteredGrazing ? "No remaining differences found\n" : "No differences found\n");
     }
 }
 
