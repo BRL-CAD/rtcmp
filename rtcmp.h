@@ -34,12 +34,6 @@
 #include <brlcad/raytrace.h>
 #include "comp/compare_config.h"
 
-
-/* Defines used when setting up shotline inputs */
-#define NUMVIEWS	6			/* this refers to data in perfcomp.c */
-
-
-
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -

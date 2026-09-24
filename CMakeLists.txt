@@ -30,6 +30,7 @@ set(rtcmp_SRCS
   rtcmp.cpp
   tie/tie_diff.cpp
   tie/tie_perf.cpp
+  util/util.cpp
   )
 
 add_executable(rtcmp ${rtcmp_SRCS})
