@@ -143,8 +143,7 @@ main(int argc, char **argv)
     if (opts.use_tie) {
 	/* TIE */
 	if (opts.diff_run) {
-	    // TODO: edited constructor signature
-	    //do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
+	    do_diff_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, opts.compare_opts);
 	}
 	if (opts.performance_run) {
 	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);

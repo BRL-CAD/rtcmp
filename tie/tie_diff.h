@@ -26,13 +26,12 @@
 #ifndef _TIE_DIFF_H
 #define _TIE_DIFF_H
 
-#include <string>
 #include "rtcmp.h"
 
 extern "C" void    tie_diff_shoot(void *geom, struct xray * ray);
 extern "C" double  tie_diff_getsize(void *g);
 extern "C" int     tie_diff_getbox(void *g, point_t * min, point_t * max);
-extern "C" void   *tie_diff_constructor(const char *, int, const char **, std::string);
+extern "C" void   *tie_diff_constructor(const char *, int, const char **);
 extern "C" int     tie_diff_destructor(void *);
 
 #endif

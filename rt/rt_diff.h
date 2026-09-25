@@ -26,13 +26,12 @@
 #ifndef _RT_DIFF_H
 #define _RT_DIFF_H
 
-#include <string>
 #include "rtcmp.h"
 
 extern "C" void    rt_diff_shoot(void *geom, struct xray * ray);
 extern "C" double  rt_diff_getsize(void *g);
 extern "C" int     rt_diff_getbox(void *g, point_t * min, point_t * max);
-extern "C" void   *rt_diff_constructor(const char *, int, const char **, std::string);
+extern "C" void   *rt_diff_constructor(const char *, int, const char **);
 extern "C" int     rt_diff_destructor(void *);
 
 #endif

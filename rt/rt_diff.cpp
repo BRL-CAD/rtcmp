@@ -98,7 +98,7 @@ rt_diff_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-rt_diff_constructor(const char *file, int numreg, const char **regs, std::string outFileName)
+rt_diff_constructor(const char *file, int numreg, const char **regs)
 {
     struct application *a;
     char            descr[BUFSIZ];

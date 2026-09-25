@@ -139,7 +139,7 @@ load_or_build_rays(int rays_per_view,
  */
 void
 do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int rays_per_view,
-	void *(*constructor) (const char *, int, const char **, std::string),
+	void *(*constructor) (const char *, int, const char **),
 	int (*getbox) (void *, point_t *, point_t *),
 	double (*getsize) (void *),
 	void (*shoot) (void *, struct xray * ray),
@@ -149,7 +149,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     nthreads = (nthreads == 0) ? bu_avail_cpus() : nthreads;	// 0 implies maximize cpu
 
     /* base instance for this run */
-    void* base_inst = constructor(*argv, argc-1, argv+1, dinfo.json_ofile);
+    void* base_inst = constructor(*argv, argc-1, argv+1);
     if (base_inst == NULL) {
 	return;
     }

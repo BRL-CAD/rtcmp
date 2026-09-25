@@ -26,7 +26,6 @@
 #ifndef RTCMP_H
 #define RTCMP_H
 
-#include <string>
 #include <unordered_map>
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
@@ -51,7 +50,7 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, dou
  * for output. */
 void
 do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
-	void*(*constructor)(const char *, int, const char**, std::string),
+	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
