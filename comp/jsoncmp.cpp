@@ -232,6 +232,15 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     }
     const unsigned int previous_debug = rt_debug;
     if (dinfo.primitive_hits) rt_debug |= RT_DEBUG_RTCMP;
+#ifdef RT_RTCMP_CAPTURE_RUNTIME_TOGGLE
+    if (dinfo.primitive_hits && rt_rtcmp_capture_set_enabled(1) != 0) {
+        std::cerr << "Unable to enable primitive capture\n";
+        rt_debug = previous_debug;
+        destructor(base_inst);
+        bu_free(rays, "ray buffer");
+        return 1;
+    }
+#endif
 
     /* multithreading? */
     // we need one application* and resrouces per thread
@@ -296,6 +305,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     // write all collected data
     int capture_status = 0;
     if (dinfo.primitive_hits) {
+#ifdef RT_RTCMP_CAPTURE_RUNTIME_TOGGLE
+	rt_rtcmp_capture_set_enabled(0);
+#endif
 	capture_status = rt_rtcmp_capture_flush();
 	rt_debug = previous_debug;
         if (capture_status) std::cerr << "Primitive capture failed\n";
