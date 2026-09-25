@@ -169,6 +169,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	return;
     }
 
+    base_app->a_resource = (struct resource *)bu_calloc(1, sizeof(struct resource), "resource");
+    rt_init_resource(base_app->a_resource, 0, base_app->a_rt_i);
+
     // prep file for writing; erase any existing contents with trunc
     std::ofstream f(dinfo.json_ofile, std::ios::binary | std::ios::trunc);
 
@@ -226,7 +229,12 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     tsj::Writer::Collector::flushToFile(dinfo.json_ofile);
     
     /* cleanup */
+    // rt_free_rti cleans registered resources, so their storage must outlive the destructor.
     destructor(base_inst);
+    for (application &app : apps) {
+	bu_free(app.a_resource, "resource");
+	app.a_resource = NULL;
+    }
 }
 
 

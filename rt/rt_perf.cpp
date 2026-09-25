@@ -124,7 +124,7 @@ rt_perf_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     rt_free_rti(a->a_rt_i);
-    free(a);
+    bu_free(a, "free RT application");
     return 0;
 }
 

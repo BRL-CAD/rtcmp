@@ -123,9 +123,6 @@ rt_diff_constructor(const char *file, int numreg, const char **regs, std::string
 	return NULL;
     }
 
-    a->a_resource = (struct resource *)bu_calloc(1, sizeof(struct resource), "resource");
-    rt_init_resource(a->a_resource, 0, a->a_rt_i);
-
     while (numreg--)
 	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
     rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
