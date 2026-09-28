@@ -117,8 +117,6 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
 	void (*shoot) (void *, struct xray * ray),
 	int (*destructor) (void *))
 {
-    void *inst;
-
     /* retained between runs. */
     static double radius = -1.0;	/* bounding sphere and flag */
     static point_t bb[3];	/* bounding box, third is center */
@@ -127,7 +125,11 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
     if (perf_seconds <= 0.0)
 	perf_seconds = 1.0;
 
-    inst = constructor(*argv, argc-1, argv+1);
+    const int64_t setup_start = bu_gettime();
+    void *inst = constructor(*argv, argc-1, argv+1);
+    const double setup_seconds = (bu_gettime() - setup_start) / 1000000.0;
+    std::cout << std::fixed << std::setprecision(6)
+	<< "Setup time       (" << prefix << "): " << setup_seconds << "\n";
     if (inst == NULL) {
 	return;
     }
