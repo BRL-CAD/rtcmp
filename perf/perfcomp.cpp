@@ -109,7 +109,7 @@ perf_results_t do_perf(perf_run_bundle_t params) {
     return {wall_sec, cpu_sec, rays_shot, rays.size(), rays_per_sec_wall, rays_per_sec_cpu, pool_reuse};
 }
 
-void
+bool
 do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, double perf_seconds, size_t max_ray_pool_bytes,
 	void *(*constructor) (const char *, int, const char **),
 	int (*getbox) (void *, point_t *, point_t *),
@@ -131,7 +131,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
     std::cout << std::fixed << std::setprecision(6)
 	<< "Setup time       (" << prefix << "): " << setup_seconds << "\n";
     if (inst == NULL) {
-	return;
+	return false;
     }
 
     /* first with a legit radius gets to define the bb and sph */
@@ -155,7 +155,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
     if (seed_res.pool_size == 0) {
 	// nothing in the pool, something went wrong
 	destructor(inst);
-	return;
+	return false;
     }
 
     double estimated_rays_per_sec = seed_res.rays_per_sec_wall * perf_seconds;
@@ -170,7 +170,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
     if (main_res.pool_size == 0) {
 	// nothing in the pool, something went wrong
 	destructor(inst);
-	return;
+	return false;
     }
 
     /* clean up */
@@ -184,6 +184,7 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
     std::cout << std::fixed << std::setprecision(2) << "Rays shot       (" << prefix << "): " << main_res.rays_shot << "\n";
     std::cout << std::fixed << std::setprecision(2) << "Ray pool size   (" << prefix << "): " << main_res.pool_size << "\n";
     std::cout << std::fixed << std::setprecision(2) << "Pool reuse      (" << prefix << "): " << main_res.pool_reuse << "\n";
+    return true;
 }
 
 

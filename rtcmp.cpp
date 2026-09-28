@@ -136,7 +136,8 @@ main(int argc, char **argv)
 	    return -1;
 	}
 	// FIXME: dry still fires all rays for perf run
-	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+	if (!do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor))
+	    return 1;
     }
 
     /* Diff and/or Performance run */
@@ -146,7 +147,8 @@ main(int argc, char **argv)
 	    do_diff_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, opts.compare_opts);
 	}
 	if (opts.performance_run) {
-	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
+	    if (!do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor))
+		return 1;
 	}
     } else {
 	/* Regular rt */
@@ -154,7 +156,8 @@ main(int argc, char **argv)
 	    do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
 	}
 	if (opts.performance_run) {
-	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	    if (!do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor))
+		return 1;
 	}
     }
 
