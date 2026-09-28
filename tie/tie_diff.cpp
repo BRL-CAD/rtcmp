@@ -124,7 +124,8 @@ tie_diff_constructor(const char *file, int numreg, const char **regs)
      * shotline logic into a TIE enabled test. We just restore the prior
      * setting once we're done in order to localize the impact to just this
      * test. */
-    char *tval = bu_strdup(getenv("LIBRT_BOT_MINTIE"));
+    const char *current_mintie = getenv("LIBRT_BOT_MINTIE");
+    char *previous_mintie = bu_strdup(current_mintie ? current_mintie : "");
     bu_setenv("LIBRT_BOT_MINTIE", "1", 1);
 
     while (numreg--)
@@ -132,8 +133,8 @@ tie_diff_constructor(const char *file, int numreg, const char **regs)
     rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
 							 * versions */
     /* Prep is complete, restore the env LIBRT_BOT_MINTIE value */
-    bu_setenv("LIBRT_BOT_MINTIE", tval, 1);
-    bu_free((char *)tval, "tval");
+    bu_setenv("LIBRT_BOT_MINTIE", previous_mintie, 1);
+    bu_free(previous_mintie, "previous LIBRT_BOT_MINTIE value");
 
     return (void *) a;
 }
