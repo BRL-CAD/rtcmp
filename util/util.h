@@ -8,6 +8,10 @@
 
 namespace rtutil {
 
+// Load, validate, and prepare the requested objects. The caller retains
+// ownership of rtip on both success and failure.
+bool prepare_scene(struct rt_i *rtip, int object_count, const char **objects);
+
 // Build ray array based on requested number of rays per view.
 // TODO: paramaterize num view(s)
 std::vector<xray> build_view_rays(double radius, const point_t center, std::size_t rays_per_view);

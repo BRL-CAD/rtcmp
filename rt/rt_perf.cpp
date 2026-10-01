@@ -37,6 +37,7 @@ extern "C" {
 }
 
 #include "rt/rt_perf.h"
+#include "util/util.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
@@ -59,17 +60,6 @@ miss(struct application * a)
 {
     a->a_uptr = NULL;
     return 0;
-}
-
-static size_t
-active_solid_count(struct rt_i *rtip)
-{
-    size_t count = 0;
-    struct soltab *solid;
-    RT_VISIT_ALL_SOLTABS_START(solid, rtip) {
-	++count;
-    } RT_VISIT_ALL_SOLTABS_END;
-    return count;
 }
 
 void
@@ -123,29 +113,7 @@ rt_perf_constructor(const char *file, int numreg, const char **regs)
 	return NULL;
     }
 
-    while (numreg--) {
-	const char *region = *regs++;
-	if (rt_gettree(a->a_rt_i, region) < 0) {
-	    fprintf(stderr, "RT: Failed to load object: %s\n", region);
-	    rt_free_rti(a->a_rt_i);
-	    bu_free(a, "RT application");
-	    return NULL;
-	}
-    }
-
-    const size_t active_solids = active_solid_count(a->a_rt_i);
-    if (active_solids != a->a_rt_i->stats.nsolids) {
-	fprintf(stderr, "RT: Object loading retained %zu of %zu solids\n",
-		active_solids, a->a_rt_i->stats.nsolids);
-	rt_free_rti(a->a_rt_i);
-	bu_free(a, "RT application");
-	return NULL;
-    }
-
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
-    if (a->a_rt_i->stats.nregions == 0 || a->a_rt_i->stats.nsolids == 0) {
-	fprintf(stderr, "RT: Prepared scene contains no regions or solids\n");
+    if (!rtutil::prepare_scene(a->a_rt_i, numreg, regs)) {
 	rt_free_rti(a->a_rt_i);
 	bu_free(a, "RT application");
 	return NULL;

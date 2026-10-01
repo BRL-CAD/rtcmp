@@ -1,11 +1,23 @@
 #include "util/util.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 
 #include <brlcad/bn.h>
 
 namespace {
+
+std::size_t
+active_solid_count(struct rt_i *rtip)
+{
+    std::size_t count = 0;
+    struct soltab *solid;
+    RT_VISIT_ALL_SOLTABS_START(solid, rtip) {
+	++count;
+    } RT_VISIT_ALL_SOLTABS_END;
+    return count;
+}
 
 // TODO: better and/or random dirs?
 const vect_t VIEW_DIRECTIONS[] = {
@@ -92,6 +104,32 @@ build_view_rays_impl(double radius, const point_t center,
 } // namespace
 
 namespace rtutil {
+
+bool
+prepare_scene(struct rt_i *rtip, int object_count, const char **objects)
+{
+    while (object_count-- > 0) {
+	const char *object = *objects++;
+	if (rt_gettree(rtip, object) < 0) {
+	    std::fprintf(stderr, "RT: Failed to load object: %s\n", object);
+	    return false;
+	}
+    }
+
+    const std::size_t active_solids = active_solid_count(rtip);
+    if (active_solids != rtip->stats.nsolids) {
+	std::fprintf(stderr, "RT: Object loading retained %zu of %zu solids\n",
+		     active_solids, rtip->stats.nsolids);
+	return false;
+    }
+
+    rt_prep_parallel(rtip, bu_avail_cpus());
+    if (rtip->stats.nregions == 0 || rtip->stats.nsolids == 0) {
+	std::fprintf(stderr, "RT: Prepared scene contains no regions or solids\n");
+	return false;
+    }
+    return true;
+}
 
 std::vector<xray>
 build_view_rays(double radius, const point_t center, std::size_t rays_per_view)

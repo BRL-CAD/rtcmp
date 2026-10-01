@@ -38,6 +38,7 @@ extern "C" {
 
 #include "comp/jsonwriter.hpp"
 #include "tie/tie_diff.h"
+#include "util/util.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
@@ -128,13 +129,16 @@ tie_diff_constructor(const char *file, int numreg, const char **regs)
     char *previous_mintie = bu_strdup(current_mintie ? current_mintie : "");
     bu_setenv("LIBRT_BOT_MINTIE", "1", 1);
 
-    while (numreg--)
-	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
+    const bool scene_ready = rtutil::prepare_scene(a->a_rt_i, numreg, regs);
     /* Prep is complete, restore the env LIBRT_BOT_MINTIE value */
     bu_setenv("LIBRT_BOT_MINTIE", previous_mintie, 1);
     bu_free(previous_mintie, "previous LIBRT_BOT_MINTIE value");
+
+    if (!scene_ready) {
+	rt_free_rti(a->a_rt_i);
+	bu_free(a, "RT application");
+	return NULL;
+    }
 
     return (void *) a;
 }
