@@ -2,6 +2,7 @@
 #define RTCMP_UTIL_H
 
 #include <cstddef>
+#include <string>
 #include <vector>
 
 #include <brlcad/raytrace.h>
@@ -20,6 +21,10 @@ std::vector<xray> build_view_rays(double radius, const point_t center, std::size
 // cannot hold the minimum ray set.
 std::vector<xray> build_view_rays_for_target(double radius, const point_t center,
 				     std::size_t target_rays, std::size_t max_bytes);
+
+// Read or write a complete .rays file (a header followed by xyz/dir pairs).
+bool read_rays(const std::string& filename, std::vector<xray>& rays, std::string& error);
+bool write_rays(const std::string& filename, const std::vector<xray>& rays, std::string& error);
 
 } // namespace rtutil
 

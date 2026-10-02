@@ -31,12 +31,25 @@ set(rtcmp_SRCS
   tie/tie_diff.cpp
   tie/tie_perf.cpp
   util/util.cpp
+  util/ray_io.cpp
   )
 
 add_executable(rtcmp ${rtcmp_SRCS})
 set_property(TARGET rtcmp PROPERTY CXX_STANDARD 17)
 target_compile_definitions(rtcmp PRIVATE RT_DLL_IMPORTS BU_DLL_IMPORTS)
 target_link_libraries(rtcmp PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} $<$<BOOL:${M_LIBRARY}>:${M_LIBRARY}>)
+
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(rtcmp_ray_io_test
+    tests/ray_io_test.cpp
+    util/ray_io.cpp
+    )
+  set_property(TARGET rtcmp_ray_io_test PROPERTY CXX_STANDARD 17)
+  target_compile_definitions(rtcmp_ray_io_test PRIVATE RT_DLL_IMPORTS BU_DLL_IMPORTS)
+  target_link_libraries(rtcmp_ray_io_test PRIVATE Threads::Threads ${BRLCAD_LIBRARIES} $<$<BOOL:${M_LIBRARY}>:${M_LIBRARY}>)
+  add_test(NAME rtcmp_ray_io_test COMMAND rtcmp_ray_io_test)
+endif()
 
 # Local Variables:
 # tab-width: 8

@@ -9,6 +9,8 @@
 #include <brlcad/bu.h>
 #include <brlcad/vmath.h>
 
+#include "util/util.h"
+
 /***************************/
 /***** ShotIndex class *****/
 /***************************/
@@ -234,61 +236,59 @@ void ComparisonResult::summary(const std::string& filename) const {
         // categorize differences
         if (!p_differing.empty()) {
             std::cout << "\t(" << p_differing.size() << ") shots with unequal hit data.\n";
-            this->writeOnlyDiffering(filename);
         }
 
         if (!p_onlyA.empty()) {
             std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxA->filename() << ".\n";
-            this->writeOnlyA(filename);
         }
 
         if (!p_onlyB.empty()) {
-            std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxB->filename() << ".\n";
-            this->writeOnlyB(filename);
+            std::cout << "\t(" << p_onlyB.size() << ") shots only in " << p_idxB->filename() << ".\n";
         }
 
         // 'total'
-        int total_in_A = p_idxA->orderedKeys().size();  // assumes sizeA == sizeB
-        double percent_diff = (double)this->differences() / (double)total_in_A * 100.0;
-        std::cout << "\ttotal differences: " << this->differences() << " / " << total_in_A << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
-        std::cout << "See " << filename << " for full differences.\n";
+        const std::size_t total_rays = p_idxA->orderedKeys().size() + p_onlyB.size();
+        const double percent_diff = static_cast<double>(this->differences()) / static_cast<double>(total_rays) * 100.0;
+        std::cout << "\ttotal differences: " << this->differences() << " / " << total_rays
+            << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
+
+	std::string error;
+	if (p_writeRays(filename, error))
+	    std::cout << "See " << filename << " for all differing rays.\n";
+	else
+	    std::cerr << error << '\n';
     } else {
 	std::cout << "No differences found\n";
     }
 }
 
-void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
-    out << "** differing shots [" << p_differing.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_differing) {
-        // TODO: is this all we want to log for differing?
-        Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
-    }
-}
+bool
+ComparisonResult::p_writeRays(const std::string& filename, std::string& error) const
+{
+    std::vector<xray> rays;
+    rays.reserve(differences());
 
-void ComparisonResult::writeOnlyA(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
-    out << "** shots only in " << p_idxA->filename() << " [" << p_onlyA.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_onlyA) {
-        Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
-    }
-}
+    const auto append_rays = [&rays, &error](const std::vector<uint64_t>& hashes,
+					     const ShotIndex& index) {
+	for (const uint64_t hash : hashes) {
+	    const std::optional<Shot> shot = index.getShot(hash);
+	    if (!shot) {
+		error = "failed to load differing ray " + std::to_string(hash) + " from: " + index.filename();
+		return false;
+	    }
 
-void ComparisonResult::writeOnlyB(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::out);
-    out << "** shots only in " << p_idxB->filename() << " [" << p_onlyB.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_onlyB) {
-        Shot shot = p_idxB->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
-    }
+	    xray ray{};
+	    VMOVE(ray.r_pt, shot->ray.pt);
+	    VMOVE(ray.r_dir, shot->ray.dir);
+	    rays.push_back(ray);
+	}
+	return true;
+    };
+
+    if (!append_rays(p_differing, *p_idxA) || !append_rays(p_onlyA, *p_idxA) || !append_rays(p_onlyB, *p_idxB))
+	return false;
+
+    return rtutil::write_rays(filename, rays, error);
 }
 
 
@@ -337,7 +337,7 @@ inline const char* _parse_xyz(const char* p,
     // Z
     p = _parse_quoted_double(p, end, "\"Z\":\"", arr[2]);
     p++;    // skip closing "
-    
+
     return p;
 }
 

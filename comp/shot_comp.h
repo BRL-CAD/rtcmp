@@ -61,16 +61,12 @@ public:
                      int nThreads = 0);     // default (0): use all available CPU
 
     // returns total number of differences
-    int differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
+    std::size_t differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
 
     /* summarize differences
      * logs general info to cout, and specifics to 'filename'. */
     void summary(const std::string& filename) const;
 
-    // individual results writers for !equal
-    void writeOnlyDiffering(const std::string& filename) const;
-    void writeOnlyA(const std::string& filename) const;
-    void writeOnlyB(const std::string& filename) const;
 private:
     // results (stored ray hash)
     std::vector<uint64_t> p_differing;  // same ray-hash but mismatched data
@@ -88,4 +84,7 @@ private:
 
     // compare one ray by hash: load from each index, then custom-compare
     void p_compareOne(uint64_t rayHash);
+
+    // write rays (differing + onlyA + onlyB)
+    bool p_writeRays(const std::string& filename, std::string& error) const;
 };
