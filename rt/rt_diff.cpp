@@ -41,6 +41,7 @@ extern "C" {
 #include <iomanip>
 #include "comp/jsonwriter.hpp"
 #include "rt/rt_diff.h"
+#include "util/util.h"
 
 
 static int
@@ -66,7 +67,7 @@ miss(struct application * a)
     return 0;
 }
 
-/* Note - output data is stored in the json container */
+/* Write each shot through the thread-local JSON writer. */
 void
 rt_diff_shoot(void *g, struct xray * ray)
 {
@@ -98,7 +99,7 @@ rt_diff_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-rt_diff_constructor(const char *file, int numreg, const char **regs, std::string outFileName)
+rt_diff_constructor(const char *file, int numreg, const char **regs)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -123,13 +124,11 @@ rt_diff_constructor(const char *file, int numreg, const char **regs, std::string
 	return NULL;
     }
 
-    a->a_resource = (struct resource *)bu_calloc(1, sizeof(struct resource), "resource");
-    rt_init_resource(a->a_resource, 0, a->a_rt_i);
-
-    while (numreg--)
-	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
+    if (!rtutil::prepare_scene(a->a_rt_i, numreg, regs)) {
+	rt_free_rti(a->a_rt_i);
+	bu_free(a, "RT application");
+	return NULL;
+    }
 
     return (void *) a;
 }

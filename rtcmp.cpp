@@ -152,18 +152,20 @@ main(int argc, char **argv)
 	    return -1;
 	}
 	// FIXME: dry still fires all rays for perf run
-	do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor);
+	if (!do_perf_run("dry", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, dry_constructor, dry_getbox, dry_getsize, dry_shoot, dry_destructor))
+	    return 1;
     }
 
     /* Diff and/or Performance run */
     if (opts.use_tie) {
 	/* TIE */
 	if (opts.diff_run) {
-	    // TODO: edited constructor signature
-	    //do_diff_run("tie", 2, (const char **)av, ncpus, rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, dinfo);
+	    int diff_status = do_diff_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, opts.compare_opts);
+	    if (diff_status) return diff_status;
 	}
 	if (opts.performance_run) {
-	    do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor);
+	    if (!do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor))
+		return 1;
 	}
     } else {
 	/* Regular rt */
@@ -172,7 +174,8 @@ main(int argc, char **argv)
             if (diff_status) return diff_status;
 	}
 	if (opts.performance_run) {
-	    do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor);
+	    if (!do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor))
+		return 1;
 	}
     }
 

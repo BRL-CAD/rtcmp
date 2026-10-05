@@ -5,11 +5,9 @@
 #include <unordered_map>
 #include <optional>
 #include <fstream>
-#include <mutex>                    // needed?
+#include <mutex>                    // std::mutex (ComparisonResult::p_mtxResult)
 
-#include "json.hpp"                 // nlohmann::json
 #include "Shot.h"                   // existing Shot, Ray, Partition definitions
-#include "comp/compare_config.h"    // config struct (needed?)
 
 /* Auxiliary helper functions. Handle method specific reading / writing */
 namespace shot_utils {
@@ -22,9 +20,7 @@ namespace shot_utils {
     // parse a NDJSON line into Shot
     Shot parse_json_shot(const std::string &line);
 
-    // compares shots values within tolerance; returns true if equal
-    // TODO: should probably be a Shot class function
-    bool shot_equal_at_tol(const Shot* shotA, const Shot* shotB, const double tolerance);
+    // Primitive segments are compared independently from evaluated partitions.
     bool segments_equal_at_tol(const Shot* shotA, const Shot* shotB, double tolerance);
 };
 
@@ -76,16 +72,12 @@ public:
     void filterGrazing(GrazingDetector& detector);
 
     // returns total number of differences
-    int differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
+    std::size_t differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
 
     /* summarize differences
      * logs general info to cout, and specifics to 'filename'. */
     void summary(const std::string& filename) const;
 
-    // individual results writers for !equal
-    void writeOnlyDiffering(const std::string& filename) const;
-    void writeOnlyA(const std::string& filename) const;
-    void writeOnlyB(const std::string& filename) const;
 private:
     // results (stored ray hash)
     std::vector<uint64_t> p_differing;  // same ray-hash but mismatched data
@@ -109,4 +101,7 @@ private:
 
     // compare one ray by hash: load from each index, then custom-compare
     void p_compareOne(uint64_t rayHash);
+
+    // write rays (differing + onlyA + onlyB)
+    bool p_writeRays(const std::string& filename, std::string& error) const;
 };

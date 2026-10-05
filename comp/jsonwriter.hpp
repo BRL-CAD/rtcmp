@@ -1,9 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <fstream>
 #include <cstdio>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <brlcad/bu.h>  // bu_semaphore
 
@@ -60,9 +64,8 @@ public:
     }
 
     /* Begin a new shot: open partition array, stash ray origin/dir for later
-     * TODO: json.hpp .dump() writes partitions first and then ray info
-     *       which is the pattern we're copying. Need to see if we can just
-     *       write ray info first so we don't have to stash
+     * TODO: The legacy output writes partitions before ray info. Determine
+     *       whether ray info can be written first so it need not be stashed.
      */
     inline void beginShot(const struct xray &ray) {
         shot_start = buf.size();

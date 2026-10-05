@@ -7,10 +7,15 @@
 #include <map>
 #include <charconv>
 #include <cmath>
+#include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <brlcad/bu.h>
 #include <brlcad/vmath.h>
+
+#include "json.hpp"
+#include "util/util.h"
 
 /***************************/
 /***** ShotIndex class *****/
@@ -243,7 +248,7 @@ void ComparisonResult::p_compareOne(uint64_t rayHash) {
     }
     Shot shotB = std::move(*maybe_B);
 
-    unsigned kind = !shot_utils::shot_equal_at_tol(&shotA, &shotB, p_tolerance) ? PARTITIONS_DIFFER : 0U;
+    unsigned kind = !shotA.equalWithin(shotB, p_tolerance) ? PARTITIONS_DIFFER : 0U;
     if (p_idxA->hasSegments() &&
         !shot_utils::segments_equal_at_tol(&shotA, &shotB, p_tolerance)) kind |= SEGMENTS_DIFFER;
     if (kind) {
@@ -326,61 +331,59 @@ void ComparisonResult::summary(const std::string& filename) const {
             }
             std::cout << "\t(" << evaluated << ") evaluated-only, (" << primitive
                       << ") primitive-only, (" << both << ") both-level differences.\n";
-            this->writeOnlyDiffering(filename);
         }
 
         if (!p_onlyA.empty()) {
             std::cout << "\t(" << p_onlyA.size() << ") shots only in " << p_idxA->filename() << ".\n";
-            this->writeOnlyA(filename);
         }
 
         if (!p_onlyB.empty()) {
             std::cout << "\t(" << p_onlyB.size() << ") shots only in " << p_idxB->filename() << ".\n";
-            this->writeOnlyB(filename);
         }
 
         // 'total'
-        double percent_diff = (double)this->differences() / (double)p_totalRays * 100.0;
-        std::cout << "\ttotal differences: " << this->differences() << " / " << p_totalRays << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
-        std::cout << "See " << filename << " for full differences.\n";
+        const double percent_diff = p_totalRays == 0 ? 0.0
+            : static_cast<double>(this->differences()) / static_cast<double>(p_totalRays) * 100.0;
+        std::cout << "\ttotal differences: " << this->differences() << " / " << p_totalRays
+            << " = ~" << std::fixed << std::setprecision(2) << percent_diff << "%\n";
+
+	std::string error;
+	if (p_writeRays(filename, error))
+	    std::cout << "See " << filename << " for all differing rays.\n";
+	else
+	    std::cerr << error << '\n';
     } else {
         std::cout << (p_filteredGrazing ? "No remaining differences found\n" : "No differences found\n");
     }
 }
 
-void ComparisonResult::writeOnlyDiffering(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::app);
-    out << "** differing shots [" << p_differing.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_differing) {
-        Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z]
-               << " # " << (p_diff_kind.at(hash) == PARTITIONS_DIFFER ? "evaluated" :
-                      p_diff_kind.at(hash) == SEGMENTS_DIFFER ? "primitive" : "both") << "\n";
-    }
-}
+bool
+ComparisonResult::p_writeRays(const std::string& filename, std::string& error) const
+{
+    std::vector<xray> rays;
+    rays.reserve(differences());
 
-void ComparisonResult::writeOnlyA(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::app);
-    out << "** shots only in " << p_idxA->filename() << " [" << p_onlyA.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_onlyA) {
-        Shot shot = p_idxA->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
-    }
-}
+    const auto append_rays = [&rays, &error](const std::vector<uint64_t>& hashes,
+					     const ShotIndex& index) {
+	for (const uint64_t hash : hashes) {
+	    const std::optional<Shot> shot = index.getShot(hash);
+	    if (!shot) {
+		error = "failed to load differing ray " + std::to_string(hash) + " from: " + index.filename();
+		return false;
+	    }
 
-void ComparisonResult::writeOnlyB(const std::string& filename) const {
-    std::ofstream out(filename, std::ios::app);
-    out << "** shots only in " << p_idxB->filename() << " [" << p_onlyB.size() << "] **\n";
-    out << std::fixed << std::setprecision(17);
-    for (uint64_t hash : p_onlyB) {
-        Shot shot = p_idxB->getShot(hash).value();
-        out << "xyz " << shot.ray.pt[X] << " " << shot.ray.pt[Y] << " " << shot.ray.pt[Z] << "\n" <<
-               "dir " << shot.ray.dir[X] << " " << shot.ray.dir[Y] << " " << shot.ray.dir[Z] << "\n";
-    }
+	    xray ray{};
+	    VMOVE(ray.r_pt, shot->ray.pt);
+	    VMOVE(ray.r_dir, shot->ray.dir);
+	    rays.push_back(ray);
+	}
+	return true;
+    };
+
+    if (!append_rays(p_differing, *p_idxA) || !append_rays(p_onlyA, *p_idxA) || !append_rays(p_onlyB, *p_idxB))
+	return false;
+
+    return rtutil::write_rays(filename, rays, error);
 }
 
 
@@ -429,7 +432,7 @@ inline const char* _parse_xyz(const char* p,
     // Z
     p = _parse_quoted_double(p, end, "\"Z\":\"", arr[2]);
     p++;    // skip closing "
-    
+
     return p;
 }
 
@@ -451,7 +454,7 @@ inline const char* _parse_xyz_fields(const char* p,
 Shot::Ray shot_utils::parse_json_ray(const std::string& jsonLine) {
     // NOTE: assumes the form (ordering, naming, and quoting matter):
     // {..json.. "ray_dir":"{"X":"VAL","Z":"VAL","Z":"VAL"},"ray_pt":{"X":"VAL","Z":"VAL","Z":"VAL"}}
-    Shot::Ray ray{0.0};
+    Shot::Ray ray;
     const char *p   = jsonLine.c_str();
     const char *end = p + jsonLine.size();
 
@@ -467,7 +470,7 @@ Shot::Ray shot_utils::parse_json_ray(const std::string& jsonLine) {
 }
 
 Shot shot_utils::parse_json_shot(const std::string &jsonLine) {
-    Shot shot{ Shot::Ray(0.0) };
+    Shot shot;
     const char *p   = jsonLine.c_str();
     const char *end = p + jsonLine.size();
 
@@ -480,7 +483,7 @@ Shot shot_utils::parse_json_shot(const std::string &jsonLine) {
             while (*p && *p != '{' && *p != ']') ++p;
             if (*p != '{') break;   // no more partitions
 
-            Shot::Partition part{0.0};
+            Shot::Partition part;
 
             // in_dist
             p = _parse_quoted_double(p, end, "\"in_dist\":\"", part.in_dist);
@@ -566,31 +569,31 @@ Shot shot_utils::parse_json_shot(const std::string &jsonLine) {
 
     return shot;
 }
-
-bool shot_utils::shot_equal_at_tol(const Shot* shotA, const Shot* shotB, const double tol) {
+bool Shot::equalWithin(const Shot& other, double tolerance) const
+{
     // compare ray origin & direction
-    if (!VNEAR_EQUAL(shotA->ray.pt,  shotB->ray.pt,  tol) ||
-        !VNEAR_EQUAL(shotA->ray.dir, shotB->ray.dir, tol)) {
+    if (!VNEAR_EQUAL(ray.pt, other.ray.pt, tolerance) ||
+        !VNEAR_EQUAL(ray.dir, other.ray.dir, tolerance)) {
         return false;
     }
 
     // compare number of partitions
-    if (shotA->parts.size() != shotB->parts.size()) {
+    if (parts.size() != other.parts.size()) {
         return false;
     }
 
     // compare each partition
-    for (size_t i = 0; i < shotA->parts.size(); ++i) {
-        const auto &pa = shotA->parts[i];
-        const auto &pb = shotB->parts[i];
+    for (size_t i = 0; i < parts.size(); ++i) {
+        const auto &pa = parts[i];
+        const auto &pb = other.parts[i];
 
         if (pa.region != pb.region ||
-            !VNEAR_EQUAL(pa.in,       pb.in,       tol) ||
-            !VNEAR_EQUAL(pa.in_norm,  pb.in_norm,  tol) ||
-            !NEAR_EQUAL( pa.in_dist,  pb.in_dist,  tol) ||
-            !VNEAR_EQUAL(pa.out,      pb.out,      tol) ||
-            !VNEAR_EQUAL(pa.out_norm, pb.out_norm, tol) ||
-            !NEAR_EQUAL( pa.out_dist, pb.out_dist, tol)) {
+            !VNEAR_EQUAL(pa.in,       pb.in,       tolerance) ||
+            !VNEAR_EQUAL(pa.in_norm,  pb.in_norm,  tolerance) ||
+            !NEAR_EQUAL( pa.in_dist,  pb.in_dist,  tolerance) ||
+            !VNEAR_EQUAL(pa.out,      pb.out,      tolerance) ||
+            !VNEAR_EQUAL(pa.out_norm, pb.out_norm, tolerance) ||
+            !NEAR_EQUAL( pa.out_dist, pb.out_dist, tolerance)) {
             return false;
         }
     }
@@ -643,6 +646,6 @@ bool shot_utils::segments_equal_at_tol(const Shot* a, const Shot* b, double tol)
 
 bool Shot::operator==(const Shot& other) const
 {
-    return shot_utils::shot_equal_at_tol(this, &other, SMALL_FASTF) &&
+    return equalWithin(other, SMALL_FASTF) &&
         shot_utils::segments_equal_at_tol(this, &other, SMALL_FASTF);
 }

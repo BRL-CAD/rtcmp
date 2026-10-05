@@ -37,6 +37,7 @@ extern "C" {
 }
 
 #include "rt/rt_perf.h"
+#include "util/util.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
@@ -112,10 +113,12 @@ rt_perf_constructor(const char *file, int numreg, const char **regs)
 	return NULL;
     }
 
-    while (numreg--)
-	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
+    if (!rtutil::prepare_scene(a->a_rt_i, numreg, regs)) {
+	rt_free_rti(a->a_rt_i);
+	bu_free(a, "RT application");
+	return NULL;
+    }
+
     return (void *) a;
 }
 
@@ -124,7 +127,7 @@ rt_perf_destructor(void *g)
 {
     struct application *a = (struct application *)g;
     rt_free_rti(a->a_rt_i);
-    free(a);
+    bu_free(a, "free RT application");
     return 0;
 }
 

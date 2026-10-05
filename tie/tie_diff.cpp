@@ -36,32 +36,14 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
-#include <sstream>
-#include <limits>
-#include <iomanip>
-#include "json.hpp"
+#include "comp/jsonwriter.hpp"
 #include "tie/tie_diff.h"
-
-struct app_json {
-    nlohmann::json *jshots;
-    nlohmann::json *shotparts;
-};
-
-static std::string
-d2s(double d)
-{
-    size_t prec = std::numeric_limits<double>::max_digits10;
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(prec) << d;
-    std::string sd = ss.str();
-    return sd;
-}
+#include "util/util.h"
 
 static int
 hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 {
-    struct app_json *j = (struct app_json *)a->a_uptr;
-    nlohmann::json *shotparts = j->shotparts;
+    auto &writer = tsj::Writer::instance();
 
     /* walk the partition list */
     for (struct partition *pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
@@ -70,24 +52,7 @@ hit(struct application * a, struct partition *PartHeadp, struct seg * s)
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray, 0);
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
 
-	nlohmann::json jpart;
-	jpart["region"] = pp->pt_regionp->reg_name;
-	jpart["in_dist"] = d2s(pp->pt_inhit->hit_dist);
-	jpart["out_dist"] = d2s(pp->pt_outhit->hit_dist);
-	jpart["in_pt"]["X"] = d2s(pp->pt_inhit->hit_point[X]);
-	jpart["in_pt"]["Y"] = d2s(pp->pt_inhit->hit_point[Y]);
-	jpart["in_pt"]["Z"] = d2s(pp->pt_inhit->hit_point[Z]);
-	jpart["out_pt"]["X"] = d2s(pp->pt_outhit->hit_point[X]);
-	jpart["out_pt"]["Y"] = d2s(pp->pt_outhit->hit_point[Y]);
-	jpart["out_pt"]["Z"] = d2s(pp->pt_outhit->hit_point[Z]);
-	jpart["in_norm"]["X"] = d2s(pp->pt_inhit->hit_normal[X]);
-	jpart["in_norm"]["Y"] = d2s(pp->pt_inhit->hit_normal[Y]);
-	jpart["in_norm"]["Z"] = d2s(pp->pt_inhit->hit_normal[Z]);
-	jpart["out_norm"]["X"] = d2s(pp->pt_outhit->hit_normal[X]);
-	jpart["out_norm"]["Y"] = d2s(pp->pt_outhit->hit_normal[Y]);
-	jpart["out_norm"]["Z"] = d2s(pp->pt_outhit->hit_normal[Z]);
-
-	(*shotparts)["partitions"].push_back(jpart);
+	writer.addPartition(pp);
     }
     return 0;
 }
@@ -98,32 +63,19 @@ miss(struct application * a)
     return 0;
 }
 
-/* Note - output data is stored in the json container */
+/* Write each shot through the thread-local JSON writer. */
 void
 tie_diff_shoot(void *g, struct xray * ray)
 {
     struct application *a = (struct application *)g;
-    struct app_json *j = (struct app_json *)a->a_uptr;
-
-    // Make a container for this particular shot
-
-    nlohmann::json rayparts;
-    rayparts["ray_pt"]["X"] = d2s(ray->r_pt[X]);
-    rayparts["ray_pt"]["Y"] = d2s(ray->r_pt[Y]);
-    rayparts["ray_pt"]["Z"] = d2s(ray->r_pt[Z]);
-    rayparts["ray_dir"]["X"] = d2s(ray->r_dir[X]);
-    rayparts["ray_dir"]["Y"] = d2s(ray->r_dir[Y]);
-    rayparts["ray_dir"]["Z"] = d2s(ray->r_dir[Z]);
-
-    // TODO - need parallel awareness in shotparts container?
-    j->shotparts = &rayparts;
+    auto &writer = tsj::Writer::instance();
 
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
-    rt_shootray(a);		/* call into librt */
 
-    // TODO - lock?
-    (*j->jshots)["shots"].push_back(rayparts);
+    writer.beginShot(*ray);
+    rt_shootray(a);		/* call into librt */
+    writer.endShot();
 }
 
 double
@@ -143,7 +95,7 @@ tie_diff_getbox(void *g, point_t * min, point_t * max)
 }
 
 extern "C" void           *
-tie_diff_constructor(const char *file, int numreg, const char **regs, nlohmann::json *j)
+tie_diff_constructor(const char *file, int numreg, const char **regs)
 {
     struct application *a;
     char            descr[BUFSIZ];
@@ -173,22 +125,20 @@ tie_diff_constructor(const char *file, int numreg, const char **regs, nlohmann::
      * shotline logic into a TIE enabled test. We just restore the prior
      * setting once we're done in order to localize the impact to just this
      * test. */
-    char *tval = bu_strdup(getenv("LIBRT_BOT_MINTIE"));
+    const char *current_mintie = getenv("LIBRT_BOT_MINTIE");
+    char *previous_mintie = bu_strdup(current_mintie ? current_mintie : "");
     bu_setenv("LIBRT_BOT_MINTIE", "1", 1);
 
-    while (numreg--)
-	rt_gettree(a->a_rt_i, *regs++);	/* load up the named regions */
-    rt_prep_parallel(a->a_rt_i, bu_avail_cpus());	/* and compile to in-mem
-							 * versions */
+    const bool scene_ready = rtutil::prepare_scene(a->a_rt_i, numreg, regs);
     /* Prep is complete, restore the env LIBRT_BOT_MINTIE value */
-    bu_setenv("LIBRT_BOT_MINTIE", tval, 1);
-    bu_free((char *)tval, "tval");
+    bu_setenv("LIBRT_BOT_MINTIE", previous_mintie, 1);
+    bu_free(previous_mintie, "previous LIBRT_BOT_MINTIE value");
 
-    /* Connect the json output container to the application structure */
-    struct app_json *jc;
-    BU_GET(jc, struct app_json);
-    jc->jshots = j;
-    a->a_uptr = (void *)jc;
+    if (!scene_ready) {
+	rt_free_rti(a->a_rt_i);
+	bu_free(a, "RT application");
+	return NULL;
+    }
 
     return (void *) a;
 }
@@ -197,10 +147,8 @@ int
 tie_diff_destructor(void *g)
 {
     struct application *a = (struct application *)g;
-    struct app_json *jc = (struct app_json *)a->a_uptr;
-    BU_PUT(jc, struct app_json);
     rt_free_rti(a->a_rt_i);
-    free(a);
+    bu_free(a, "free RT application");
     return 0;
 }
 

@@ -26,25 +26,18 @@
 #ifndef RTCMP_H
 #define RTCMP_H
 
-#include <string>
 #include <unordered_map>
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
-#include "comp/shotset.h"
-
-
-/* Defines used when setting up shotline inputs */
-#define NUMVIEWS	6			/* this refers to data in perfcomp.c */
-
-
+#include "comp/compare_config.h"
 
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
  * of changes to the same raytracer) so outputs are not captured -
  * instead, run time is measured by the caller */
-void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, double seconds, size_t max_memory,
+bool do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, double seconds, size_t max_memory,
 	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
@@ -57,7 +50,7 @@ void do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, dou
  * for output. */
 int
 do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
-	void*(*constructor)(const char *, int, const char**, std::string),
+	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
 	void (*shoot)(void*, struct xray *),
