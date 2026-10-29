@@ -79,10 +79,13 @@ load_or_build_rays(int rays_per_view,
     std::string error;
 
     if (!in_ray_file.empty()) {
-	if (!rtutil::read_rays(in_ray_file, rays, error)) {
-	    std::cerr << error << '\n';
+	rtutil::RaySet rayset;
+	const rtutil::RayFileStatus status = rtutil::read_rays(in_ray_file, rayset);
+	if (!status.ok()) {
+	    std::cerr << status.message << '\n';
 	    return {};
 	}
+	rays = std::move(rayset.rays);
     } else {
 	rays = rtutil::build_view_rays(radius, center, rays_per_view);
 	if (rays.empty()) {
@@ -90,8 +93,10 @@ load_or_build_rays(int rays_per_view,
 	    return {};
 	}
 
-	if (!rtutil::write_rays(out_ray_file, rays, error)) {
-	    std::cerr << error << '\n';
+	std::string content_hash;
+	const rtutil::RayFileStatus status = rtutil::write_rays(out_ray_file, rays, content_hash);
+	if (!status.ok()) {
+	    std::cerr << status.message << '\n';
 	    return {};
 	}
     }

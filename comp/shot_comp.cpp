@@ -383,7 +383,13 @@ ComparisonResult::p_writeRays(const std::string& filename, std::string& error) c
     if (!append_rays(p_differing, *p_idxA) || !append_rays(p_onlyA, *p_idxA) || !append_rays(p_onlyB, *p_idxB))
 	return false;
 
-    return rtutil::write_rays(filename, rays, error);
+    std::string content_hash;
+    const rtutil::RayFileStatus status = rtutil::write_rays(filename, rays, content_hash);
+    if (!status.ok()) {
+	error = status.message;
+	return false;
+    }
+    return true;
 }
 
 

@@ -63,13 +63,11 @@ target_link_libraries(rtcmp PRIVATE rtcmp_core)
 
 include(CTest)
 if(BUILD_TESTING)
-  add_executable(rtcmp_ray_io_test
-    tests/ray_io_test.cpp
-    )
-  target_link_libraries(rtcmp_ray_io_test PRIVATE rtcmp_core)
-  add_test(NAME rtcmp_ray_io_test
+  add_executable(rayset_test tests/rayset_test.cpp)
+  target_link_libraries(rayset_test PRIVATE rtcmp_core)
+  add_test(NAME rayset_test
     COMMAND ${CMAKE_COMMAND}
-      "-DTEST_EXECUTABLE=$<TARGET_FILE:rtcmp_ray_io_test>"
+      "-DTEST_EXECUTABLE=$<TARGET_FILE:rayset_test>"
       "-DRTCMP_RUNTIME_DIRECTORY=${BRLCAD_ROOT}/bin"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_test.cmake"
     )

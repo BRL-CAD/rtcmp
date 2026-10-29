@@ -2,7 +2,12 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <iomanip>
 #include <limits>
+#include <locale>
+#include <new>
+#include <sstream>
+#include <utility>
 
 #include <brlcad/bn.h>
 
@@ -24,7 +29,8 @@ const vect_t VIEW_DIRECTIONS[] = {
     {0, 0, 1}, {0, 1, 0}, {1, 0, 0},
     {1, 1, 1}, {1, 4, -1}, {-1, -2, 4}
 };
-constexpr std::size_t VIEW_COUNT = sizeof(VIEW_DIRECTIONS) / sizeof(VIEW_DIRECTIONS[0]);
+static_assert(sizeof(VIEW_DIRECTIONS) / sizeof(VIEW_DIRECTIONS[0]) == rtutil::BALANCED_VIEW_COUNT,
+	      "balanced view metadata must match the generated directions");
 
 constexpr std::size_t RAYS_PER_RING = 100;
 constexpr std::size_t MIN_RAYS_PER_VIEW = RAYS_PER_RING + 1;	// min = 1ring + center
@@ -48,11 +54,11 @@ ray_count_per_view(std::size_t requested_rays, std::size_t max_pool_bytes)
     if (max_pool_bytes == 0)
 	return complete_ray_count(requested_rays);
 
-    const std::size_t minimum_pool_bytes = VIEW_COUNT * MIN_RAYS_PER_VIEW * sizeof(struct xray);
+    const std::size_t minimum_pool_bytes = rtutil::BALANCED_VIEW_COUNT * MIN_RAYS_PER_VIEW * sizeof(struct xray);
     if (max_pool_bytes < minimum_pool_bytes)
 	return 0;
 
-    const std::size_t max_rays_per_view = max_pool_bytes / sizeof(struct xray) / VIEW_COUNT;
+    const std::size_t max_rays_per_view = max_pool_bytes / sizeof(struct xray) / rtutil::BALANCED_VIEW_COUNT;
     const std::size_t max_complete_rays =
 	((max_rays_per_view - 1) / RAYS_PER_RING) * RAYS_PER_RING + 1;
     if (requested_rays >= max_complete_rays)
@@ -86,12 +92,17 @@ build_view_rays_impl(double radius, const point_t center,
     if (rays_per_view == 0)
 	return {};
 
-    if (rays_per_view > std::numeric_limits<std::size_t>::max() / VIEW_COUNT)
+    if (rays_per_view > std::numeric_limits<std::size_t>::max() / rtutil::BALANCED_VIEW_COUNT)
 	return {};
 
-    const std::size_t total_rays = VIEW_COUNT * rays_per_view;
-    std::vector<xray> rays(total_rays);
-    for (std::size_t view = 0; view < VIEW_COUNT; ++view) {
+    const std::size_t total_rays = rtutil::BALANCED_VIEW_COUNT * rays_per_view;
+    std::vector<xray> rays;
+    try {
+	rays.resize(total_rays);
+    } catch (const std::bad_alloc&) {
+	return {};
+    }
+    for (std::size_t view = 0; view < rtutil::BALANCED_VIEW_COUNT; ++view) {
 	vect_t direction;
 	VMOVE(direction, VIEW_DIRECTIONS[view]);
 	VUNITIZE(direction);
@@ -106,7 +117,7 @@ build_view_rays_impl(double radius, const point_t center,
 namespace rtutil {
 
 bool
-prepare_scene(struct rt_i *rtip, int object_count, const char **objects)
+prepare_scene(struct rt_i *rtip, int object_count, const char **objects, int ncpus)
 {
     while (object_count-- > 0) {
 	const char *object = *objects++;
@@ -123,7 +134,8 @@ prepare_scene(struct rt_i *rtip, int object_count, const char **objects)
 	return false;
     }
 
-    rt_prep_parallel(rtip, bu_avail_cpus());
+    const int prep_cpus = ncpus > 0 ? ncpus : bu_avail_cpus();
+    rt_prep_parallel(rtip, prep_cpus);
     if (rtip->stats.nregions == 0 || rtip->stats.nsolids == 0) {
 	std::fprintf(stderr, "RT: Prepared scene contains no regions or solids\n");
 	return false;
@@ -141,9 +153,45 @@ std::vector<xray>
 build_view_rays_for_target(double radius, const point_t center,
 			   std::size_t target_rays, std::size_t max_pool_bytes)
 {
-    const std::size_t target_rays_per_view = target_rays / VIEW_COUNT
-	+ (target_rays % VIEW_COUNT != 0);
+    const std::size_t target_rays_per_view = target_rays / BALANCED_VIEW_COUNT
+	+ (target_rays % BALANCED_VIEW_COUNT != 0);
     return build_view_rays_impl(radius, center, target_rays_per_view, max_pool_bytes);
+}
+
+BalancedRaySet
+build_balanced_view_rays(double radius, const point_t center, std::size_t minimum_total_rays)
+{
+    const std::size_t requested_per_view = minimum_total_rays / BALANCED_VIEW_COUNT
+	+ (minimum_total_rays % BALANCED_VIEW_COUNT != 0);
+    std::vector<xray> rays = build_view_rays_impl(radius, center, requested_per_view, 0);
+    const std::size_t actual_per_view = rays.empty() ? 0 : rays.size() / BALANCED_VIEW_COUNT;
+    return {std::move(rays), actual_per_view};
+}
+
+std::string
+json_quote(const std::string& value)
+{
+    std::ostringstream output;
+    output.imbue(std::locale::classic());
+    output << '"' << std::hex << std::setfill('0');
+    for (const unsigned char character : value) {
+	switch (character) {
+	    case '"': output << "\\\""; break;
+	    case '\\': output << "\\\\"; break;
+	    case '\b': output << "\\b"; break;
+	    case '\f': output << "\\f"; break;
+	    case '\n': output << "\\n"; break;
+	    case '\r': output << "\\r"; break;
+	    case '\t': output << "\\t"; break;
+	    default:
+		if (character < 0x20U)
+		    output << "\\u" << std::setw(4) << static_cast<unsigned>(character);
+		else
+		    output << static_cast<char>(character);
+	}
+    }
+    output << '"';
+    return output.str();
 }
 
 } // namespace rtutil
