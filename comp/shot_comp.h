@@ -1,107 +1,120 @@
-#pragma once
+#ifndef RTCMP_SHOT_COMP_H
+#define RTCMP_SHOT_COMP_H
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <optional>
+#include <cstddef>
 #include <fstream>
-#include <mutex>                    // std::mutex (ComparisonResult::p_mtxResult)
+#include <functional>
+#include <iosfwd>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-#include "Shot.h"                   // existing Shot, Ray, Partition definitions
+#include "Shot.h"
+#include "util/util.h"
 
-/* Auxiliary helper functions. Handle method specific reading / writing */
 namespace shot_utils {
-    // computes hash on ray origin + direction
-    uint64_t hash_ray(const Shot::Ray& ray) noexcept;
 
-    // parse a JSON object {"X":...,"Y":...,"Z":...} into Shot::Ray
-    Shot::Ray parse_json_ray(const std::string& line);
+bool parse_json_shot(const std::string& line, Shot& shot, std::string& error);
 
-    // parse a NDJSON line into Shot
-    Shot parse_json_shot(const std::string &line);
+} // namespace shot_utils
 
-    // Primitive segments are compared independently from evaluated partitions.
-    bool segments_equal_at_tol(const Shot* shotA, const Shot* shotB, double tolerance);
+struct ShotCoverage {
+    std::size_t total_records = 0;
+    std::size_t observed_count = 0;
+    std::size_t malformed_count = 0;
+    std::size_t duplicate_count = 0;
+    std::size_t unknown_count = 0;
+    std::size_t missing_count = 0;
+    bool io_error = false;
+
+    bool malformed() const noexcept
+    {
+	return malformed_count != 0 || duplicate_count != 0 || unknown_count != 0;
+    }
 };
 
-/* Indexes a large NDJSON shot file into (file-offset, hash) pairs */
 class ShotIndex {
 public:
-    explicit ShotIndex(const std::string& filename);
-    ~ShotIndex();
+    ShotIndex(const std::string& filename, const std::vector<rtutil::RayKey>& expected_keys);
 
-    // returns whether shotIndex loaded indices successfully from filename
-    bool isValid() const noexcept;
-    bool hasSegments() const noexcept;
+    const ShotCoverage& coverage() const noexcept { return m_coverage; }
+    const std::string& error_message() const noexcept { return m_error_message; }
+    const std::string& filename() const noexcept { return m_filename; }
+    bool has_segments() const noexcept { return m_has_segments; }
+    bool read_shot(const rtutil::RayKey& key, std::ifstream& input, Shot& shot) const;
 
-    // returns filename for associated shotIndex
-    std::string filename() const noexcept;
-
-    // order using file offset so we can iterate in sequential chunks
-    const std::vector<std::pair<uint64_t, uint64_t>>& orderedKeys() const noexcept;  // <file_offset, ray_hash>
-
-    // lookup rayHash; returns either map value or std::nullopt (thread safe)
-    std::optional<uint64_t> lookup(uint64_t rayHash) const noexcept;
-    
-    // get full shot for rayHash; returns Shot or std::nullopt (NOT thread safe)
-    std::optional<Shot> getShot(uint64_t rayHash) const;
 private:
-    std::string p_filename;
-    std::ifstream p_file;
-    bool p_valid{false};
-    bool p_has_segments{false};
-
-    std::vector<std::pair<uint64_t, uint64_t>> p_ordered_keys;  // <file_offset, ray_hash>
-    std::unordered_map<uint64_t, uint64_t> p_offset_map;        // hashed ray pt+dir -> file offset
-
-    void p_buildIndex();                                        // main driver: iterate over file and load map
+    std::string m_filename;
+    std::string m_error_message;
+    ShotCoverage m_coverage;
+    bool m_has_segments = false;
+    bool m_schema_seen = false;
+    std::unordered_map<rtutil::RayKey, std::streamoff, rtutil::RayKeyHash> m_offsets;
 };
 
-class GrazingDetector;
+enum class CorrectnessState {
+    Equivalent,
+    Different,
+    Malformed,
+    Incomplete,
+    IoError
+};
 
-/* fully compare two ShotIndex at tolerance */
-class ComparisonResult {
+const char *correctness_state_name(CorrectnessState state) noexcept;
+
+struct CorrectnessMismatches {
+    std::size_t different_rays = 0;
+    std::size_t partition_count = 0;
+    std::size_t region = 0;
+    std::size_t numeric = 0;
+    std::size_t segment_count = 0;
+    std::size_t primitive = 0;
+    std::size_t segment_numeric = 0;
+    std::size_t filtered_grazing = 0;
+    std::size_t read_errors = 0;
+};
+
+struct CorrectnessResult {
+    CorrectnessState state = CorrectnessState::IoError;
+    std::size_t expected_count = 0;
+    double tolerance = 0.0;
+    ShotCoverage baseline;
+    ShotCoverage candidate;
+    CorrectnessMismatches mismatches;
+    std::string detail;
+};
+
+class CorrectnessComparison {
 public:
-    ComparisonResult(const ShotIndex& idxA,
-                     const ShotIndex& idxB,
-                     double tolerance,
-                     bool reportMissingRays = false,
-                     int nThreads = 0);     // default (0): use all available CPU
+    using GrazingPredicate = std::function<bool(
+	const Shot::Ray&, const std::vector<std::string>&)>;
 
-    // Remove differences where nearby rays change the implicated region hit counts.
-    void filterGrazing(GrazingDetector& detector);
+    CorrectnessComparison(const rtutil::RaySet& rayset,
+			  const std::string& baseline_file,
+			  const std::string& candidate_file,
+			  double tolerance,
+			  int thread_count = 0);
 
-    // returns total number of differences
-    std::size_t differences() const noexcept { return p_differing.size() + p_onlyA.size() + p_onlyB.size(); }
-
-    /* summarize differences
-     * logs general info to cout, and specifics to 'filename'. */
-    void summary(const std::string& filename) const;
+    const CorrectnessResult& result() const noexcept { return m_result; }
+    void filter_grazing(const GrazingPredicate& is_grazing);
+    bool write_differences(const std::string& filename) const;
+    void summary(std::ostream& output, const std::string& differences_file = {}) const;
 
 private:
-    // results (stored ray hash)
-    std::vector<uint64_t> p_differing;  // same ray-hash but mismatched data
-    static constexpr unsigned PARTITIONS_DIFFER = 1U;
-    static constexpr unsigned SEGMENTS_DIFFER = 2U;
-    std::unordered_map<uint64_t, unsigned> p_diff_kind;
-    std::vector<uint64_t> p_onlyA;      // in A but not in B
-    std::vector<uint64_t> p_onlyB;      // in B but not in A
+    const rtutil::RaySet& m_rayset;
+    std::vector<rtutil::RayKey> m_expected_keys;
+    ShotIndex m_baseline;
+    ShotIndex m_candidate;
+    CorrectnessResult m_result;
+    std::vector<std::size_t> m_different_indices;
+    std::vector<std::uint8_t> m_mismatch_flags;
 
-    // compare inputs
-    const ShotIndex* p_idxA;
-    const ShotIndex* p_idxB;
-    const double p_tolerance;
-    const bool p_reportMissingRays;
-    size_t p_totalRays;
-    size_t p_filteredGrazing = 0;
-
-    // protects writes into the shared vectors
-    // TODO: bu_mutex
-    std::mutex p_mtxResult;
-
-    // compare one ray by hash: load from each index, then custom-compare
-    void p_compareOne(uint64_t rayHash);
-
-    // write rays (differing + onlyA + onlyB)
-    bool p_writeRays(const std::string& filename, std::string& error) const;
+    void compare(int thread_count);
+    void summarize_mismatches();
 };
+
+std::string correctness_status_json(const CorrectnessResult& result,
+				    const std::string& rayset_hash,
+				    int exit_code);
+
+#endif // RTCMP_SHOT_COMP_H

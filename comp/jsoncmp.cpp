@@ -40,31 +40,29 @@ int do_comp(const char *file1, const char *file2, const CompareConfig& config) {
         }
     }
 
-    // build indexes for both shot files
-    ShotIndex s1(file1);
-    if (!s1.isValid()) {
-        std::cerr << "Failed to index " << file1 << std::endl;
-        return -1;
+    if (config.in_ray_file.empty()) {
+	std::cerr << "--input-rays is required for correctness comparison\n";
+	return -1;
+    }
+    rtutil::RaySet rayset;
+    const rtutil::RayFileStatus ray_status = rtutil::read_rays(config.in_ray_file, rayset);
+    if (!ray_status.ok()) {
+	std::cerr << ray_status.message << '\n';
+	return -1;
     }
 
-    ShotIndex s2(file2);
-    if (!s2.isValid()) {
-        std::cerr << "Failed to index " << file2 << std::endl;
-        return -1;
-    }
-
-    if (s1.hasSegments() != s2.hasSegments()) {
-        std::cerr << "Primitive data is present in only one input file" << std::endl;
-        return -1;
-    }
-    ComparisonResult results(s1, s2, config.tol, config.report_missing_rays);
+    CorrectnessComparison comparison(rayset, file1, file2, config.tol);
     if (detector) {
-        results.filterGrazing(*detector);
+	comparison.filter_grazing([&](const Shot::Ray& ray, const std::vector<std::string>& regions) {
+	    return detector->unstable(ray, regions);
+	});
         std::cout << "Grazing probe radius: " << detector->radius() << " mm ("
                   << detector->sampleCount() << " nearby rays)\n";
     }
-    results.summary(config.nirt_file);
-    return 0;
+    if (comparison.result().state == CorrectnessState::Different && !config.nirt_file.empty())
+	comparison.write_differences(config.nirt_file);
+    comparison.summary(std::cout, config.nirt_file);
+    return comparison.result().state == CorrectnessState::Equivalent ? 0 : 1;
 }
 
 /*
