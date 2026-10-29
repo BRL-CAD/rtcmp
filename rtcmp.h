@@ -26,12 +26,22 @@
 #ifndef RTCMP_H
 #define RTCMP_H
 
-#include <unordered_map>
 #include <brlcad/vmath.h>
 #include <brlcad/bu.h>
 #include <brlcad/bn.h>
 #include <brlcad/raytrace.h>
 #include "comp/compare_config.h"
+
+enum class RtcmpExitCode : int {
+    Success = 0,
+    ExecutionFailure = 1,
+    Usage = 2,
+    Io = 3,
+    SceneSetup = 4,
+    InvalidRayset = 5,
+    CorrectnessMismatch = 6,
+    InvalidCoverage = 7
+};
 
 /* Do a performance testing run - the purpose of this run is to
  * compare the relative performance of two raytracers (or the impact
@@ -48,8 +58,8 @@ bool do_perf_run(const char *prefix, int argc, const char **argv, int ncpus, dou
  * raytracing results.  This will produce a sizable output file, and
  * may run rather slowly since shotline intersection data is being captured
  * for output. */
-int
-do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvrays,
+RtcmpExitCode
+do_diff_run(const char *prefix, int argc, const char **argv, int ncpus,
 	void*(*constructor)(const char *, int, const char**),
 	int(*getbox)(void *, point_t *, point_t *),
 	double(*getsize)(void*),
@@ -60,7 +70,11 @@ do_diff_run(const char *prefix, int argc, const char **argv, int ncpus, int nvra
 /* Do a comparison between two generated results files (from do_diff_run()).
  * produces output file of differing rays
  */
-int do_comp(const char *file1, const char *file2, const CompareConfig& dinfo);
+RtcmpExitCode do_comp(const char *file1, const char *file2, const CompareConfig& dinfo);
+
+RtcmpExitCode report_configuration_failure(const CompareConfig& config,
+				   const std::string& operation,
+				   const std::string& detail);
 
 #endif // RTCMP_H
 
@@ -72,4 +86,3 @@ int do_comp(const char *file1, const char *file2, const CompareConfig& dinfo);
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

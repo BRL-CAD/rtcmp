@@ -72,6 +72,15 @@ if(BUILD_TESTING)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_test.cmake"
     )
 
+  add_executable(correctness_test tests/correctness_test.cpp)
+  target_link_libraries(correctness_test PRIVATE rtcmp_core)
+  add_test(NAME correctness_test
+    COMMAND ${CMAKE_COMMAND}
+      "-DTEST_EXECUTABLE=$<TARGET_FILE:correctness_test>"
+      "-DRTCMP_RUNTIME_DIRECTORY=${BRLCAD_ROOT}/bin"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_test.cmake"
+    )
+
   add_test(NAME rtcmp_runtime_smoke
     COMMAND ${CMAKE_COMMAND}
       "-DTEST_EXECUTABLE=$<TARGET_FILE:rtcmp>"
@@ -79,6 +88,28 @@ if(BUILD_TESTING)
       "-DRTCMP_RUNTIME_DIRECTORY=${BRLCAD_ROOT}/bin"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_test.cmake"
     )
+
+  add_test(NAME cli_status_test
+    COMMAND ${CMAKE_COMMAND}
+      "-DRTCMP_EXECUTABLE=$<TARGET_FILE:rtcmp>"
+      "-DRTCMP_RUNTIME_DIRECTORY=${BRLCAD_ROOT}/bin"
+      "-DTEST_OUTPUT_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/cli-status-test"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_status_test.cmake"
+    )
+
+  set(rtcmp_identical_build_geometry "${BRLCAD_ROOT}/share/db/cube.g")
+  if(EXISTS "${rtcmp_identical_build_geometry}")
+    add_test(NAME identical_build_test
+      COMMAND ${CMAKE_COMMAND}
+        "-DBASELINE_RTCMP=$<TARGET_FILE:rtcmp>"
+        "-DCANDIDATE_RTCMP=$<TARGET_FILE:rtcmp>"
+        "-DRTCMP_RUNTIME_DIRECTORY=${BRLCAD_ROOT}/bin"
+        "-DTEST_OUTPUT_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/identical-build-test"
+        "-DTEST_GEOMETRY=${rtcmp_identical_build_geometry}"
+        "-DTEST_OBJECT=all.g"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/identical_build_test.cmake"
+      )
+  endif()
 endif()
 
 # Local Variables:
