@@ -4,6 +4,8 @@
 /*_build
 /*-build
 /out
+/debug.vanilla
+/out
 
 # Temporary files
 *~
