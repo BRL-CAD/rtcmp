@@ -7,6 +7,15 @@
 #include <brlcad/bn.h>
 #include <brlcad/bu.h>
 
+#include "util/util.h"
+
+namespace {
+
+constexpr double MINIMUM_GRAZING_RADIUS = 1.0e-12;
+constexpr double DEFAULT_GRAZING_RADIUS_SCALE = 1.0e-7;
+
+} // namespace
+
 GrazingDetector::GrazingDetector(const std::string& geometry, const std::string& object,
                                  double requested_radius, int samples)
     : sample_count(samples)
@@ -22,14 +31,15 @@ GrazingDetector::GrazingDetector(const std::string& geometry, const std::string&
     }
 
     rt_init_resource(&resource, 0, rtip);
-    if (rt_gettree(rtip, object.c_str()) < 0) {
+    const char *object_name = object.c_str();
+    if (!rtutil::prepare_scene(rtip, 1, &object_name, 1)) {
         error_message = "Failed to load object '" + object + "' from " + geometry;
         return;
     }
-    rt_prep_parallel(rtip, 1);
 
     ring_radius = requested_radius > 0.0 ? requested_radius :
-        std::fmax(1e-12, std::fabs(rtip->rti_radius) * 1e-7);
+	std::fmax(MINIMUM_GRAZING_RADIUS,
+		  std::fabs(rtip->rti_radius) * DEFAULT_GRAZING_RADIUS_SCALE);
     if (!std::isfinite(ring_radius) || ring_radius <= 0.0) {
         error_message = "Could not determine a finite grazing radius";
         return;

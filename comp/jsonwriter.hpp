@@ -1,156 +1,222 @@
 #pragma once
 
-#include <cstdio>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <fstream>
-#include <iomanip>
-#include <limits>
-#include <sstream>
+#include <mutex>
 #include <string>
-#include <utility>
-#include <vector>
 
-#include <brlcad/bu.h>  // bu_semaphore
+#include <brlcad/raytrace.h>
+
+#include "util/numeric.h"
+#include "util/util.h"
 
 static std::string
-d2s(double d)
+format_number(double value)
 {
-    size_t prec = std::numeric_limits<double>::max_digits10;
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(prec) << d;
-    std::string sd = ss.str();
-    return sd;
+    return rtcmp_numeric::format(value);
 }
 
 namespace tsj {
 
-/* Per-thread JSON writer; buffers shot data in-memory */
+/* Thread-local record assembly backed by one bounded, synchronized output sink. */
 class Writer {
 public:
-    /* Global collector for thread buffers */
-    struct Collector {
-        /* Internal storage for all thread-local buffers */
-        static std::vector<std::string>& buffers() {
-            static std::vector<std::string> instance;
-            return instance;
-        }
+    static constexpr std::size_t MINIMUM_FLUSH_BYTES = 1024;
 
-        /* flush all collected buffers to disk (ONLY CALL ONCE after parallel run) */
-        static void flushToFile(const std::string &path) {
-            bu_semaphore_acquire(BU_SEM_SYSCALL);
-            std::ofstream out(path, std::ios::binary | std::ios::trunc);
-            for (auto &b : buffers()) {
-                out.write(b.data(), b.size());
-            }
-            out.close();
-            bu_semaphore_release(BU_SEM_SYSCALL);
-        }
+    struct Collector {
+	static bool open(const std::string& path)
+	{
+	    State& output = state();
+	    std::lock_guard<std::mutex> guard(output.mutex);
+	    if (output.stream.is_open())
+		output.stream.close();
+	    output.failed = false;
+	    output.stream.clear();
+	    output.stream.open(path, std::ios::binary | std::ios::trunc);
+	    output.failed = !output.stream.is_open();
+	    return !output.failed;
+	}
+
+	static bool append(const std::string& contents)
+	{
+	    State& output = state();
+	    std::lock_guard<std::mutex> guard(output.mutex);
+	    if (output.failed || !output.stream.is_open())
+		return false;
+	    output.stream.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+	    if (!output.stream)
+		output.failed = true;
+	    return !output.failed;
+	}
+
+	static bool close()
+	{
+	    State& output = state();
+	    std::lock_guard<std::mutex> guard(output.mutex);
+	    if (output.stream.is_open()) {
+		output.stream.flush();
+		if (!output.stream)
+		    output.failed = true;
+		output.stream.close();
+		if (output.stream.fail())
+		    output.failed = true;
+	    }
+	    return !output.failed;
+	}
+
+	static bool healthy()
+	{
+	    State& output = state();
+	    std::lock_guard<std::mutex> guard(output.mutex);
+	    return !output.failed;
+	}
+
+    private:
+	struct State {
+	    std::mutex mutex;
+	    std::ofstream stream;
+	    bool failed = false;
+	};
+
+	static State& state()
+	{
+	    static State output;
+	    return output;
+	}
     };
 
-
-    // ---- Writer methods ---- //
-    /* get the thread-local instance */
-    static Writer &instance() {
-        thread_local Writer w;
-        return w;
+    static Writer& instance()
+    {
+	thread_local Writer writer;
+	return writer;
     }
 
-    /* Reserve an initial buffer capacity (bytes) */
-    void reserve(size_t bytes) {
-        buf.reserve(bytes);
+    void reset(std::size_t requested_flush_bytes)
+    {
+	buffer.clear();
+	error_message.clear();
+	shot_start = 0;
+	flush_bytes = std::max(requested_flush_bytes, MINIMUM_FLUSH_BYTES);
+	has_failed = false;
     }
 
-    void setSkipMisses(bool skip) {
-        skip_misses = skip;
+    bool failed() const noexcept { return has_failed; }
+    const std::string& error() const noexcept { return error_message; }
+
+    void beginShot(const struct xray& ray)
+    {
+	if (has_failed)
+	    return;
+	shot_start = buffer.size();
+	buffer.append("{\"partitions\":[");
+	VMOVE(ray_point, ray.r_pt);
+	VMOVE(ray_direction, ray.r_dir);
     }
 
-    /* Begin a new shot: open partition array, stash ray origin/dir for later
-     * TODO: The legacy output writes partitions before ray info. Determine
-     *       whether ray info can be written first so it need not be stashed.
-     */
-    inline void beginShot(const struct xray &ray) {
-        shot_start = buf.size();
-        has_partitions = false;
-        buf.append("{\"partitions\":[");
+    void addPartition(struct partition *partition)
+    {
+	if (has_failed)
+	    return;
+	if (!valid_endpoint(partition->pt_inhit->hit_dist,
+			    partition->pt_inhit->hit_point, -1)
+	    || !valid_endpoint(partition->pt_outhit->hit_dist,
+			       partition->pt_outhit->hit_point, 1)
+	    || !rtcmp_numeric::finite_vector(partition->pt_inhit->hit_normal)
+	    || !rtcmp_numeric::finite_vector(partition->pt_outhit->hit_normal)
+	    || partition->pt_inhit->hit_dist > partition->pt_outhit->hit_dist) {
+	    fail("raytrace produced an invalid partition");
+	    return;
+	}
 
-        // stash the ray for endShot()
-        ray_pt[0]  = ray.r_pt[0];
-        ray_pt[1]  = ray.r_pt[1];
-        ray_pt[2]  = ray.r_pt[2];
-        ray_dir[0] = ray.r_dir[0];
-        ray_dir[1] = ray.r_dir[1];
-        ray_dir[2] = ray.r_dir[2];
+	buffer.append("{\"in_dist\":\"").append(format_number(partition->pt_inhit->hit_dist)).append("\",");
+	appendVector("in_norm", partition->pt_inhit->hit_normal);
+	buffer.push_back(',');
+	appendVector("in_pt", partition->pt_inhit->hit_point);
+	buffer.append(",\"out_dist\":\"").append(format_number(partition->pt_outhit->hit_dist)).append("\",");
+	appendVector("out_norm", partition->pt_outhit->hit_normal);
+	buffer.push_back(',');
+	appendVector("out_pt", partition->pt_outhit->hit_point);
+	buffer.append(",\"region\":").append(rtutil::json_quote(partition->pt_regionp->reg_name)).append("},");
     }
 
-    /* append a partition */
-    inline void addPartition(struct partition* pp) {
-        has_partitions = true;
-        char tmp[1024];
-        int n = std::snprintf(tmp, sizeof(tmp),
-            "{\"in_dist\":\"%s\","
-            "\"in_norm\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
-            "\"in_pt\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
-            "\"out_dist\":\"%s\","
-            "\"out_norm\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
-            "\"out_pt\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
-            "\"region\":\"%s\"},",
-            d2s(pp->pt_inhit->hit_dist).c_str(), //in_dist,
-            d2s(pp->pt_inhit->hit_normal[X]).c_str(), d2s(pp->pt_inhit->hit_normal[Y]).c_str(), d2s(pp->pt_inhit->hit_normal[Z]).c_str(), //in_norm[0], in_norm[1], in_norm[2],
-            d2s(pp->pt_inhit->hit_point[X]).c_str(), d2s(pp->pt_inhit->hit_point[Y]).c_str(), d2s(pp->pt_inhit->hit_point[Z]).c_str(), //in_pt[0],    in_pt[1],    in_pt[2],
-            d2s(pp->pt_outhit->hit_dist).c_str(), //out_dist,
-            d2s(pp->pt_outhit->hit_normal[X]).c_str(), d2s(pp->pt_outhit->hit_normal[Y]).c_str(), d2s(pp->pt_outhit->hit_normal[Z]).c_str(), //out_norm[0], out_norm[1], out_norm[2],
-            d2s(pp->pt_outhit->hit_point[X]).c_str(), d2s(pp->pt_outhit->hit_point[Y]).c_str(), d2s(pp->pt_outhit->hit_point[Z]).c_str(), //out_pt[0],   out_pt[1],   out_pt[2],
-            pp->pt_regionp->reg_name //region
-        );
-        buf.append(tmp, n);
+    void endShot()
+    {
+	if (has_failed)
+	    return;
+	if (!buffer.empty() && buffer.back() == ',')
+	    buffer.back() = ']';
+	else
+	    buffer.push_back(']');
+	buffer.push_back(',');
+	appendVector("ray_dir", ray_direction);
+	buffer.push_back(',');
+	appendVector("ray_pt", ray_point);
+	buffer.append("}\n");
+	if (buffer.size() >= flush_bytes && !syncToGlobal())
+	    fail("writing raytrace results failed");
     }
 
-    /* End the shot: close partitions array, append ray fields,
-     *               then hand off buffer to global collector */
-    inline void endShot() {
-        if (skip_misses && !has_partitions) {
-            buf.resize(shot_start);
-            return;
-        }
-
-        // replace trailing comma with closing bracket
-        if (!buf.empty() && buf.back() == ',') 
-            buf.back() = ']';
-        else 
-            buf.append("]");
-
-        char tmp[512];
-        int n = std::snprintf(tmp, sizeof(tmp),
-            ",\"ray_dir\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"},"
-            "\"ray_pt\":{\"X\":\"%s\",\"Y\":\"%s\",\"Z\":\"%s\"}}\n",
-            d2s(ray_dir[0]).c_str(), d2s(ray_dir[1]).c_str(), d2s(ray_dir[2]).c_str(),
-            d2s(ray_pt[0]).c_str(),  d2s(ray_pt[1]).c_str(),  d2s(ray_pt[2]).c_str()
-        );
-        buf.append(tmp, n);
-
-        // hand off to global if we're getting close to our max size
-        if (buf.capacity() - buf.size() < 2048) {   // check if we've almost maxed out our str
-            syncToGlobal();
-        }
+    bool syncToGlobal()
+    {
+	if (has_failed)
+	    return false;
+	if (buffer.empty())
+	    return Collector::healthy();
+	const bool success = Collector::append(buffer);
+	if (buffer.capacity() > flush_bytes) {
+	    std::string empty;
+	    buffer.swap(empty);
+	} else {
+	    buffer.clear();
+	}
+	shot_start = 0;
+	if (!success)
+	    fail("writing raytrace results failed");
+	return success;
     }
 
-    inline void syncToGlobal() {
-        bu_semaphore_acquire(BU_SEM_SYSCALL);
-        Collector::buffers().push_back(std::move(buf));
-        bu_semaphore_release(BU_SEM_SYSCALL);
-
-        buf.clear();
+    void abandonShot() noexcept
+    {
+	if (shot_start <= buffer.size())
+	    buffer.resize(shot_start);
     }
+
 private:
-    Writer() = default;
-    ~Writer() = default;
+    static bool valid_endpoint(double distance, const double point[3], int unbounded_sign) noexcept
+    {
+	if (std::isnan(distance))
+	    return false;
+	if (std::isinf(distance)) {
+	    const int sign = std::signbit(distance) ? -1 : 1;
+	    return sign == unbounded_sign && rtcmp_numeric::sentinel_vector(point, sign);
+	}
+	return rtcmp_numeric::finite_vector(point);
+    }
 
-    std::string buf;
-    size_t shot_start = 0;
-    bool has_partitions = false;
-    bool skip_misses = false;
-    double ray_pt[3];
-    double ray_dir[3];
+    void fail(const char *message) noexcept
+    {
+	abandonShot();
+	has_failed = true;
+	if (error_message.empty())
+	    error_message = message;
+    }
 
+    void appendVector(const char *name, const double values[3])
+    {
+	buffer.append("\"").append(name).append("\":{\"X\":\"").append(format_number(values[0]))
+	    .append("\",\"Y\":\"").append(format_number(values[1]))
+	    .append("\",\"Z\":\"").append(format_number(values[2])).append("\"}");
+    }
+
+    std::string buffer;
+    std::string error_message;
+    std::size_t shot_start = 0;
+    std::size_t flush_bytes = MINIMUM_FLUSH_BYTES;
+    double ray_point[3]{};
+    double ray_direction[3]{};
+    bool has_failed = false;
 };
 
 } // namespace tsj

@@ -38,6 +38,16 @@
 #include "rtcmp.h"
 #include "util/util.h"
 
+namespace {
+
+constexpr double TARGET_CHECK_SECONDS = 0.005;
+constexpr std::size_t MIN_CHECK_INTERVAL = 1;
+constexpr std::size_t MAX_CHECK_INTERVAL = 100000;
+constexpr double SEED_SECONDS = 0.25;
+constexpr std::size_t SEED_TARGET_RAYS = 100000;
+
+} // namespace
+
 typedef struct {
     double wall_sec;
     double cpu_sec;
@@ -78,11 +88,9 @@ perf_results_t do_perf(perf_run_bundle_t params) {
     size_t rays_shot = 0;
     size_t ray_index = 0;
     const int64_t max_usecs = (int64_t)(params.runtime_seconds * 1000000.0);
-    const double TARGET_CHECK_SECONDS = .005;	    /* approximate time poll every n-seconds */
     size_t check_interval = (rays.size() / params.runtime_seconds) * TARGET_CHECK_SECONDS;
-    // arbitrary clamp [1, 100000]
-    if (check_interval < 1) check_interval = 1;
-    if (check_interval > 100000) check_interval = 100000;
+    if (check_interval < MIN_CHECK_INTERVAL) check_interval = MIN_CHECK_INTERVAL;
+    if (check_interval > MAX_CHECK_INTERVAL) check_interval = MAX_CHECK_INTERVAL;
 
     /* performance run */
     wallclock_start = bu_gettime(); cpu_start = clock();
@@ -117,8 +125,10 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
 	void (*shoot) (void *, struct xray * ray),
 	int (*destructor) (void *))
 {
+    (void)nthreads; // Performance runs intentionally measure one engine instance.
+
     /* retained between runs. */
-    static double radius = -1.0;	/* bounding sphere and flag */
+    static double radius = -1.0;	/* bounding sphere and uninitialized sentinel */
     static point_t bb[3];	/* bounding box, third is center */
 
     /* make sure we have reasonable runtime */
@@ -148,8 +158,6 @@ do_perf_run(const char *prefix, int argc, const char **argv, int nthreads, doubl
      * use this very small run to estimate our number of rays needed for the real request
      *	ie if we get 100k rays/second and want to run for 20 seconds, scale our rays array accordingly
      */
-    const double SEED_SECONDS = 0.25;
-    const size_t SEED_TARGET_RAYS = 100000;
     perf_run_bundle_t seed_bundle = {SEED_SECONDS, SEED_TARGET_RAYS, max_ray_pool_bytes, radius, bb[2], inst, shoot};
     perf_results_t seed_res = do_perf(seed_bundle);
     if (seed_res.pool_size == 0) {

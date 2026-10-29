@@ -143,15 +143,14 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	return 1;
     }
 
-    // prep file for writing; erase any existing contents with trunc
-    std::ofstream f(dinfo.json_ofile, std::ios::binary | std::ios::trunc);
-    if (!f) {
-        std::cerr << "Unable to open output file " << dinfo.json_ofile << "\n";
-        destructor(base_inst);
-        return 1;
-    }
-    f.close();
     if (dinfo.primitive_hits) {
+	std::ofstream f(dinfo.json_ofile, std::ios::binary | std::ios::trunc);
+	if (!f) {
+	    std::cerr << "Unable to open output file " << dinfo.json_ofile << "\n";
+	    destructor(base_inst);
+	    return 1;
+	}
+	f.close();
 	if (bu_setenv("LIBRT_RTCMP_FILE", dinfo.json_ofile.c_str(), 1) != 0 ||
 	    bu_setenv("LIBRT_RTCMP_PRIMITIVES", "1", 1) != 0 ||
 	    bu_setenv("LIBRT_RTCMP_SKIP_MISSES", dinfo.skip_misses ? "1" : "0", 1) != 0) {
@@ -159,6 +158,10 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
             destructor(base_inst);
 	    return 1;
 	}
+    } else if (!tsj::Writer::Collector::open(dinfo.json_ofile)) {
+	std::cerr << "Unable to open output file " << dinfo.json_ofile << "\n";
+	destructor(base_inst);
+	return 1;
     }
     const unsigned int previous_debug = rt_debug;
     if (dinfo.primitive_hits) rt_debug |= RT_DEBUG_RTCMP;
@@ -199,8 +202,7 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	// unpack data
 	ThreadArgs* ta = (ThreadArgs*) data;
 	if (!ta->primitive_hits)
-	    tsj::Writer::instance().reserve(100 * 1024 * 1024);  // approx 100MB per thread
-	if (!ta->primitive_hits) tsj::Writer::instance().setSkipMisses(ta->skip_misses);
+	    tsj::Writer::instance().reset(8 * 1024 * 1024);
 	
 	// split in contiguous blocks
 	size_t per = ta->rays.size() / ta->nthreads;
@@ -241,8 +243,8 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
 	capture_status = rt_rtcmp_capture_flush();
 	rt_debug = previous_debug;
         if (capture_status) std::cerr << "Primitive capture failed\n";
-    } else {
-	tsj::Writer::Collector::flushToFile(dinfo.json_ofile);
+    } else if (!tsj::Writer::Collector::close()) {
+	capture_status = 1;
     }
     
     /* cleanup */

@@ -59,7 +59,9 @@ dry_shoot(void *UNUSED(g), struct xray *UNUSED(ray))
 double
 dry_getsize(void *UNUSED(g))
 {
-    return -1.0;	/* MUST be negative for perfcomp! */
+    // do_perf_run uses a negative radius to mean that no real scene has set
+    // the shared bounding volume; a dry run must preserve that sentinel.
+    return -1.0;
 }
 
 int
