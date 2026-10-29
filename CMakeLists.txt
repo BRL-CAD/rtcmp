@@ -110,6 +110,15 @@ if(BUILD_TESTING)
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/identical_build_test.cmake"
       )
   endif()
+
+  find_program(BASH_EXECUTABLE bash)
+  if(BASH_EXECUTABLE)
+    add_test(NAME harness_cleanup_test
+      COMMAND "${BASH_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/harness_cleanup_test.sh"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+      )
+  endif()
 endif()
 
 # Local Variables:

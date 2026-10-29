@@ -28,20 +28,44 @@ make -j8
 cd ..
 ```
 
-We now have two rtcmp builds, compiled against the versions of interest.  Next, we generate inputs:
+We now have two rtcmp builds, compiled against the versions of interest.  Generate
+one canonical rayset with the baseline build, then replay that exact rayset with
+the candidate build:
 
 ```sh
-cd build_main && ./rtcmp -d ~/test.g geom.bot
-cd ..
-cd build_hlbvh && ./rtcmp -d ~/test.g geom.bot
-./rtcmp -c ../build_main/shots.json shots.json
+build_main/rtcmp -d --minimum-rays 100000 --output-rays canonical.rays \
+  --output-json baseline.json ~/test.g geom.bot
+build_hlbvh/rtcmp -d --input-rays canonical.rays \
+  --output-json candidate.json ~/test.g geom.bot
+build_main/rtcmp -c --input-rays canonical.rays \
+  --output-status correctness.json baseline.json candidate.json
 ```
 
-This will produce a summary of what was observed, as well as a plot file showing segments involved  with differences and a text file with NIRT commands for reproducing differing shotlines.
+Operation exits are `0` success, `1` execution failure, `2` usage/configuration,
+`3` I/O, `4` scene setup, `5` invalid rayset, `6` geometric difference, and `7`
+malformed or incomplete result coverage.  The structured status records the
+versioned canonical-rayset identity, exact coverage counts, tolerance, and
+mismatch classes.  When results differ, `diff.nrt` contains the strict ray
+records needed to reproduce those shots.  A no-findings report has state
+`equivalent`, exit code `0`, and zero `different_rays`; no stale difference file
+is retained.
 
-Use `-d --primitive-hits` to include pre-Boolean primitive segments in each ray record alongside evaluated region partitions. Segment records include primitive identity, transform, entry and exit distances, points, outward normals, and surface numbers. Points and normals are null for malformed segments that cannot be evaluated safely. This mode also records rays whose primitive hits are removed by Boolean evaluation. `-c` automatically compares segments when both input files include them and reports primitive-only, evaluated-only, and combined differences. Comparing a primitive-enabled file with a legacy file is an error. In primitive mode, `--skip-misses` omits only rays with neither segments nor partitions.
+Use `-d --primitive-hits` with the regular RT engine to include pre-Boolean
+primitive segments in each ray record alongside evaluated region partitions.
+Segment records include primitive identity, transform, entry and exit
+distances, points, outward normals, and surface numbers. Points and normals are
+null for malformed segments that cannot be evaluated safely. This mode also
+records rays whose primitive hits are removed by Boolean evaluation. `-c`
+compares segments automatically when both files contain them and classifies
+primitive and evaluated differences separately. Mixing primitive-enabled and
+evaluated-only result files is an invalid comparison.
 
-Without `--primitive-hits`, use `-d --skip-misses` when generating a result file to omit rays with no partitions from `shots.json`. The option keeps hit records and leaves `shots.rays` intact so both builds can fire the same rays. When comparing results, a recorded miss and an absent ray are treated as equal by default. A recorded hit with no matching ray remains a difference. Use `-c --report-missing-rays` to report every ray present in only one file, including recorded misses.
+Every generation mode records every canonical ray, including misses. Comparison
+therefore rejects missing, duplicate, malformed, and out-of-rayset records
+instead of guessing whether an absent record was a miss. Existing unversioned
+NDJSON results remain usable only when their parsed ray keys exactly cover the
+supplied canonical rayset; lossy legacy ray coordinates are not matched by
+tolerance and should be regenerated.
 
 To filter likely grazing differences when the geometry is available, provide it during comparison:
 

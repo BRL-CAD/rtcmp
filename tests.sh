@@ -42,6 +42,7 @@ PERF_FAIL_THRESHOLD_PCT="${PERF_FAIL_THRESHOLD_PCT:-10}"
 NUM_CPUS="${NUM_CPUS:-0}"
 
 RAYS_PER_VIEW="${RAYS_PER_VIEW:-100000}"    # does not like 1eXX notation
+readonly CORRECTNESS_MISMATCH_EXIT=6
 
 # LOG_LEVEL:
 #   0 = normal (default): current processing (file / component) + errors
@@ -223,8 +224,10 @@ run_generate_jsons() {
     local gen_start gen_end gen_time
     gen_start="$(date +%s.%N)"
 
-    "$CMD1" --rays-per-view "$RAYS_PER_VIEW" -n "$NUM_CPUS" --output-json "$json1" --output-rays "$rays" -d "$gfile" "$comp"
-    "$CMD2" --rays-per-view "$RAYS_PER_VIEW" -n "$NUM_CPUS" --output-json "$json2" --input-rays  "$rays" -d "$gfile" "$comp"
+    "$CMD1" --rays-per-view "$RAYS_PER_VIEW" -n "$NUM_CPUS" --output-json "$json1" \
+	--output-rays "$rays" -d "$gfile" "$comp" >&2 || return $?
+    "$CMD2" -n "$NUM_CPUS" --output-json "$json2" --input-rays "$rays" \
+	-d "$gfile" "$comp" >&2 || return $?
 
     gen_end="$(date +%s.%N)"
     gen_time="$(awk -v e="$gen_end" -v s="$gen_start" 'BEGIN{print e - s}')"
@@ -232,38 +235,42 @@ run_generate_jsons() {
     echo "$json1|$json2|$rays|$gen_time"
 }
 
-# Parse rtcmp compare output: "rtcmp -c .json1 .json2"
-#   - PASS iff "No differences found" (THIS MUST MATCH rtcmp OUTPUT)
-parse_compare_output() {
-    local logfile="$1"
-    local MATCH_STRING="No differences found"
-    local status="FAIL"
-
-    if grep -Fq "$MATCH_STRING" "$logfile"; then
-	status="PASS"
-    fi
-
-    # clean up uninteresting output
-    if [[ "$status" == "PASS" && "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
-        rm -f "$logfile"
-    fi
-
-    echo "$status"
-}
-
-# Run compare, capturing logs. Returns PASS/FAIL and writes artifacts
+# Run compare, capturing logs. Returns PASS/FAIL/ERROR and writes artifacts.
 run_compare_logged() {
     local json1="$1"
     local json2="$2"
-    local tag="$3"
-    local tol="$4"
+    local rays="$3"
+    local tag="$4"
+    local tol="$5"
 
     local nirt="$OUTDIR/${tag}.t${tol}.nirt"
     local clog="$OUTDIR/${tag}.t${tol}.compare.log"
+    local status_file="$OUTDIR/${tag}.t${tol}.status.json"
+    local exit_code=0 status="ERROR"
 
-    "$CMD1" --output-nirt "$nirt" -t "$tol" -c "$json1" "$json2" >"$clog" 2>&1
+    "$CMD1" --input-rays "$rays" --output-nirt "$nirt" --output-status "$status_file" \
+	-t "$tol" -c "$json1" "$json2" >"$clog" 2>&1 || exit_code=$?
+    if ((exit_code == 0)); then
+	status="PASS"
+    elif ((exit_code == CORRECTNESS_MISMATCH_EXIT)); then
+	status="FAIL"
+    fi
 
-    parse_compare_output "$clog"
+    if [[ "$status" == "PASS" && "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
+	rm -f "$clog"
+    fi
+    echo "$status"
+}
+
+cleanup_correctness_artifacts() {
+    local status="$1"
+    local baseline_json="$2"
+    local candidate_json="$3"
+    local rays="$4"
+
+    if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" && "$status" == "PASS" ]]; then
+	rm -f "$baseline_json" "$candidate_json" "$rays"
+    fi
 }
 
 # shrink tolerance until we fail (or get to a minimum)
@@ -271,22 +278,27 @@ run_compare_logged() {
 comp_at_stepping_tols() {
     local json1="$1"
     local json2="$2"
-    local tag="$3"
+    local rays="$3"
+    local tag="$4"
 
     local tol status=""
     local last_fail_tol=""
 
     for tol in $TOLS_LIST; do
-        status="$(run_compare_logged "$json1" "$json2" "$tag" "$tol")"
+        status="$(run_compare_logged "$json1" "$json2" "$rays" "$tag" "$tol")"
 
         if [[ "$status" == "PASS" ]]; then
             if [[ -z "$last_fail_tol" ]]; then
                 echo "PASS|$tol"
             else
                 echo "FAIL|$last_fail_tol"
-            fi
+	    fi
             return 0
         fi
+        if [[ "$status" == "ERROR" ]]; then
+	    echo "ERROR|$tol"
+	    return 0
+	fi
 
         last_fail_tol="$tol"
 
@@ -450,7 +462,7 @@ main() {
             local tol_start tol_end tol_time outcome comp_status pass_tol
             tol_start="$(date +%s.%N)"
 
-            outcome="$(comp_at_stepping_tols "$json1" "$json2" "$tag")"
+            outcome="$(comp_at_stepping_tols "$json1" "$json2" "$rays" "$tag")"
             comp_status="$(echo "$outcome" | cut -d'|' -f1)"
             pass_tol="$(echo "$outcome" | cut -d'|' -f2)"
 
@@ -463,9 +475,7 @@ main() {
             log VERBOSE "            compare: $comp_status (tol=$pass_tol) in $tol_time seconds"
 
             # cleanup comp artifacts
-            if [[ "$CLEANUP_OUTPUT_ARTIFACTS" == "1" ]]; then
-                rm -f "$json1" "$json2" "$rays"
-            fi
+            cleanup_correctness_artifacts "$comp_status" "$json1" "$json2" "$rays"
 
             # do perf tests
             local perf_rps1 perf_rps2 rps_ratio perf_delta_percent perf_status
@@ -557,4 +567,6 @@ main() {
 }
 
 # and away we go
-main
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
