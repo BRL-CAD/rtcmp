@@ -26,11 +26,10 @@ set(rtcmp_SRCS
   comp/grazing.cpp
   comp/shot_comp.cpp
   perf/perfcomp.cpp
-  rt/rt_diff.cpp
-  rt/rt_perf.cpp
+  rt/librt_engine.cpp
+  rt/rt.cpp
   rtcmp.cpp
-  tie/tie_diff.cpp
-  tie/tie_perf.cpp
+  tie/tie.cpp
   util/util.cpp
   util/ray_io.cpp
   )

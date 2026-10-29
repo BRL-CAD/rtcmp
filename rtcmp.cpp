@@ -28,10 +28,8 @@
 #include "cxxopts.hpp"
 
 #include "dry/dry.h"
-#include "rt/rt_diff.h"
-#include "rt/rt_perf.h"
-#include "tie/tie_diff.h"
-#include "tie/tie_perf.h"
+#include "rt/rt.h"
+#include "tie/tie.h"
 #include "comp/compare_config.h"
 
 #include "rtcmp.h"
@@ -160,21 +158,21 @@ main(int argc, char **argv)
     if (opts.use_tie) {
 	/* TIE */
 	if (opts.diff_run) {
-	    int diff_status = do_diff_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_diff_constructor, tie_diff_getbox, tie_diff_getsize, tie_diff_shoot, tie_diff_destructor, opts.compare_opts);
+	    int diff_status = do_diff_run("tie", 2, (const char **)av, opts.ncpus, opts.rays_per_view, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor, opts.compare_opts);
 	    if (diff_status) return diff_status;
 	}
 	if (opts.performance_run) {
-	    if (!do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_perf_constructor, tie_perf_getbox, tie_perf_getsize, tie_perf_shoot, tie_perf_destructor))
+	    if (!do_perf_run("tie", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, tie_constructor, tie_getbox, tie_getsize, tie_shoot, tie_destructor))
 		return 1;
 	}
     } else {
 	/* Regular rt */
 	if (opts.diff_run) {
-	    int diff_status = do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_diff_constructor, rt_diff_getbox, rt_diff_getsize, rt_diff_shoot, rt_diff_destructor, opts.compare_opts);
+	    int diff_status = do_diff_run("rt", 2, (const char **)av, opts.ncpus, opts.rays_per_view, rt_constructor, rt_getbox, rt_getsize, rt_shoot, rt_destructor, opts.compare_opts);
             if (diff_status) return diff_status;
 	}
 	if (opts.performance_run) {
-	    if (!do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_perf_constructor, rt_perf_getbox, rt_perf_getsize, rt_perf_shoot, rt_perf_destructor))
+	    if (!do_perf_run("rt", 2, (const char **)av, opts.ncpus, opts.perf_seconds, opts.perf_max_memory, rt_constructor, rt_getbox, rt_getsize, rt_shoot, rt_destructor))
 		return 1;
 	}
     }

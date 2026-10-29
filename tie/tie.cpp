@@ -1,4 +1,4 @@
-/*                     T I E _ P E R F . H
+/*                         T I E . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,25 +17,19 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file tie_perf.h
+/** @file tie.cpp
  *
- * The "standard" librt geometry/ray intersection engine.
- *
- * Using Triangle Intersection Engine (TIE) for BoT raytracing
+ * The TIE-enabled librt engine - thin constructor variant with the TIE
+ * toggle enabled.  All other engine behavior lives in librt_engine.cpp.
  */
 
-#ifndef _TIE_PERF_H
-#define _TIE_PERF_H
+#include "tie/tie.h"
 
-#include "rtcmp.h"
-
-void            tie_perf_shoot(void *geom, struct xray * ray);
-double          tie_perf_getsize(void *g);
-int             tie_perf_getbox(void *g, point_t * min, point_t * max);
-void           *tie_perf_constructor(const char*, int, const char**);
-int             tie_perf_destructor(void *);
-
-#endif
+void *
+tie_constructor(const char *file, int numreg, const char **regs)
+{
+    return librt_engine_construct(file, numreg, regs, 1 /* mintie on */);
+}
 
 // Local Variables:
 // tab-width: 8
@@ -45,4 +39,3 @@ int             tie_perf_destructor(void *);
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

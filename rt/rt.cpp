@@ -1,4 +1,4 @@
-/*                      T I E _ D I F F . H
+/*                          R T . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,24 +17,19 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file tie_diff.h
+/** @file rt.cpp
  *
- * Output librt TIE raytrace results to a json file.
- *
+ * The "standard" librt engine - thin constructor variant with the TIE
+ * toggle disabled.  All other engine behavior lives in librt_engine.cpp.
  */
 
-#ifndef _TIE_DIFF_H
-#define _TIE_DIFF_H
+#include "rt/rt.h"
 
-#include "rtcmp.h"
-
-extern "C" void    tie_diff_shoot(void *geom, struct xray * ray);
-extern "C" double  tie_diff_getsize(void *g);
-extern "C" int     tie_diff_getbox(void *g, point_t * min, point_t * max);
-extern "C" void   *tie_diff_constructor(const char *, int, const char **);
-extern "C" int     tie_diff_destructor(void *);
-
-#endif
+void *
+rt_constructor(const char *file, int numreg, const char **regs)
+{
+    return librt_engine_construct(file, numreg, regs, 0 /* mintie off */);
+}
 
 // Local Variables:
 // tab-width: 8
@@ -44,4 +39,3 @@ extern "C" int     tie_diff_destructor(void *);
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

@@ -1,4 +1,4 @@
-/*                    R T _ P E R F . C P P
+/*                 L I B R T _ E N G I N E . C P P
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,11 +17,14 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt_perf.cpp
+/** @file librt_engine.cpp
  *
- * The "standard" librt geometry/ray intersection engine - performance
- * centric functions.
+ * Shared "standard" librt geometry/ray intersection engine core, used
+ * by both the plain librt engine (rt) and the TIE-enabled engine (tie).
  *
+ * Output is decoupled via an injected ShotSink read from a_uptr:
+ *   - perf mode leaves a_uptr NULL (null sink) -> no output work
+ *   - diff mode wires a WriterSink -> NDJSON output
  */
 
 extern "C" {
@@ -36,50 +39,60 @@ extern "C" {
 #include <brlcad/raytrace.h>
 }
 
-#include "rt/rt_perf.h"
+#include "shot_sink.h"
+#include "rt/librt_engine.h"
 #include "util/util.h"
 
 static int
-hit(struct application * a, struct partition *PartHeadp, struct seg * s)
+hit(struct application *a, struct partition *PartHeadp, struct seg *UNUSED(s))
 {
-    /* (set! a->a_uptr (map translate p)) */
-    struct partition *pp;
+    ShotSink *sink = (ShotSink *)a->a_uptr;
 
     /* walk the partition list */
-    for (pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
+    for (struct partition *pp = PartHeadp->pt_forw; pp != PartHeadp; pp = pp->pt_forw) {
 
 	/* generate the in/out normals */
 	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_inhit, pp->pt_inseg->seg_stp, a->a_ray, 0);
-	RT_HIT_NORMAL(pp->pt_inhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
+	RT_HIT_NORMAL(pp->pt_outhit->hit_normal, pp->pt_outhit, pp->pt_outseg->seg_stp, a->a_ray, 0);
+
+	/* only capture output when a sink is present (diff mode) */
+	if (sink)
+	    sink->addPartition(pp);
     }
     return 0;
 }
 
 static int
-miss(struct application * a)
+miss(struct application *UNUSED(a))
 {
-    a->a_uptr = NULL;
     return 0;
 }
 
 void
-rt_perf_shoot(void *g, struct xray * ray)
+librt_engine_shoot(void *g, struct xray *ray)
 {
     struct application *a = (struct application *)g;
+    ShotSink *sink = (ShotSink *)a->a_uptr;
+
     VMOVE(a->a_ray.r_pt, (*ray).r_pt);
     VMOVE(a->a_ray.r_dir, (*ray).r_dir);
+
+    if (sink)
+	sink->beginShot(*ray);
     rt_shootray(a);		/* call into librt */
+    if (sink)
+	sink->endShot();
 }
 
 double
-rt_perf_getsize(void *g)
+librt_engine_getsize(void *g)
 {
     struct application *a = (struct application *)g;
     return a->a_rt_i->rti_radius;
 }
 
 int
-rt_perf_getbox(void *g, point_t * min, point_t * max)
+librt_engine_getbox(void *g, point_t *min, point_t *max)
 {
     struct application *a = (struct application *)g;
     VMOVE(*min, a->a_rt_i->mdl_min);
@@ -87,13 +100,13 @@ rt_perf_getbox(void *g, point_t * min, point_t * max)
     return 0;
 }
 
-void           *
-rt_perf_constructor(const char *file, int numreg, const char **regs)
+void *
+librt_engine_construct(const char *file, int numreg, const char **regs, int mintie)
 {
     struct application *a;
     char            descr[BUFSIZ];
 
-    if(numreg < 1) {
+    if (numreg < 1) {
 	fprintf(stderr, "RT: Need at least one region\n");
 	return NULL;
     }
@@ -113,7 +126,27 @@ rt_perf_constructor(const char *file, int numreg, const char **regs)
 	return NULL;
     }
 
-    if (!rtutil::prepare_scene(a->a_rt_i, numreg, regs)) {
+    /* LIBRT_BOT_MINTIE is used only when rt_bot_prep is called, so if we
+     * override the setting here to always enable, we turn the "standard" librt
+     * shotline logic into a TIE enabled test.  We save the prior setting and
+     * restore it once we're done in order to localize the impact to just this
+     * test. */
+    char *tval = NULL;
+    if (mintie) {
+	const char *cur = getenv("LIBRT_BOT_MINTIE");
+	tval = bu_strdup(cur ? cur : "");
+	bu_setenv("LIBRT_BOT_MINTIE", "1", 1);
+    }
+
+    const bool scene_ready = rtutil::prepare_scene(a->a_rt_i, numreg, regs);
+
+    /* Prep is complete, restore the env LIBRT_BOT_MINTIE value */
+    if (mintie) {
+	bu_setenv("LIBRT_BOT_MINTIE", tval, 1);
+	bu_free((char *)tval, "tval");
+    }
+
+    if (!scene_ready) {
 	rt_free_rti(a->a_rt_i);
 	bu_free(a, "RT application");
 	return NULL;
@@ -123,9 +156,16 @@ rt_perf_constructor(const char *file, int numreg, const char **regs)
 }
 
 int
-rt_perf_destructor(void *g)
+librt_engine_destructor(void *g)
 {
     struct application *a = (struct application *)g;
+
+    /* Tear down the rt_i.  rt_free_rti() walks rtip->rti_resources and
+     * cleans (but does NOT free) every registered resource struct.  We
+     * deliberately do NOT free a->a_resource here: the engine does not
+     * own it.  Perf never allocates one (librt substitutes rt_uniresource,
+     * a static that must not be freed).  Diff allocates its resources in
+     * do_diff_run, which frees them there after this destructor runs. */
     rt_free_rti(a->a_rt_i);
     bu_free(a, "free RT application");
     return 0;
@@ -139,4 +179,3 @@ rt_perf_destructor(void *g)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

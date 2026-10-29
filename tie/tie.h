@@ -1,4 +1,4 @@
-/*                        R T _ D I F F . H
+/*                           T I E . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,22 +17,27 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt_diff.h
+/** @file tie.h
  *
- * Output librt raytrace results to a json file.
- *
+ * The TIE-enabled librt engine.  A thin variant over the shared librt
+ * engine core: identical to rt except construction toggles
+ * LIBRT_BOT_MINTIE so BoT prep uses the Triangle Intersection Engine.
  */
 
-#ifndef _RT_DIFF_H
-#define _RT_DIFF_H
+#ifndef _TIE_H
+#define _TIE_H
 
 #include "rtcmp.h"
+#include "rt/librt_engine.h"
 
-extern "C" void    rt_diff_shoot(void *geom, struct xray * ray);
-extern "C" double  rt_diff_getsize(void *g);
-extern "C" int     rt_diff_getbox(void *g, point_t * min, point_t * max);
-extern "C" void   *rt_diff_constructor(const char *, int, const char **);
-extern "C" int     rt_diff_destructor(void *);
+/* tie uses the shared engine core verbatim */
+#define tie_shoot	librt_engine_shoot
+#define tie_getsize	librt_engine_getsize
+#define tie_getbox	librt_engine_getbox
+#define tie_destructor	librt_engine_destructor
+
+/* TIE-enabled construction (mintie enabled) */
+void *tie_constructor(const char *file, int numreg, const char **regs);
 
 #endif
 
@@ -44,4 +49,3 @@ extern "C" int     rt_diff_destructor(void *);
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

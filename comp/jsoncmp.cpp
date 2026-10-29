@@ -9,6 +9,7 @@
 #include "rtcmp.h"
 #include "shot_comp.h"
 #include "jsonwriter.hpp"
+#include "comp/writer_sink.hpp"
 #include "grazing.h"
 #include "util/util.h"
 
@@ -120,6 +121,9 @@ do_diff_run(const char *prefix, int argc, const char **argv, int nthreads, int r
     }
 
     struct application* base_app = (struct application*)base_inst;
+
+    WriterSink sink;
+    base_app->a_uptr = (void *)&sink;
 
     // get these for ray generation
     double radius = getsize(base_inst);

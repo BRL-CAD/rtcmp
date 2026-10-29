@@ -1,4 +1,4 @@
-/*                          R T _ P E R F . H
+/*                      S H O T _ S I N K . H
  * RtCmp
  *
  * Copyright (c) 2007-2024 United States Government as represented by
@@ -17,22 +17,31 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file rt_perf.h
+/** @file shot_sink.h
  *
- * The "standard" librt geometry/ray intersection engine.
+ * Abstract output sink for shotline results.  The raytrace engines
+ * (rt/tie) are output-agnostic: they hold a ShotSink* in the librt
+ * application's a_uptr and forward shot/partition data to it.
  *
+ * PERF runs leave a_uptr == NULL so the hot loop performs no output
+ * work.  DIFF runs wire a concrete sink (WriterSink) into each
+ * per-thread application, producing the shared NDJSON format.
  */
 
-#ifndef _RT_H
-#define _RT_H
+#ifndef _SHOT_SINK_H
+#define _SHOT_SINK_H
 
-#include "rtcmp.h"
+#include <brlcad/vmath.h>
+#include <brlcad/raytrace.h>
 
-void            rt_perf_shoot(void *geom, struct xray * ray);
-double          rt_perf_getsize(void *g);
-int             rt_perf_getbox(void *g, point_t * min, point_t * max);
-void           *rt_perf_constructor(const char*, int, const char**);
-int             rt_perf_destructor(void *);
+/* Output sink interface.  Engines call these hooks when (and only when)
+ * a sink is present; a NULL sink means "no output" (perf mode). */
+struct ShotSink {
+    virtual void beginShot(const struct xray &ray) = 0;
+    virtual void addPartition(struct partition *pp) = 0;
+    virtual void endShot() = 0;
+    virtual ~ShotSink() = default;
+};
 
 #endif
 
@@ -44,4 +53,3 @@ int             rt_perf_destructor(void *);
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
