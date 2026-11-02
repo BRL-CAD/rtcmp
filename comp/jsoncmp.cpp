@@ -11,7 +11,6 @@
 #include <time.h>
 
 #include "rtcmp.h"
-#include "shotset.h"
 #include "shot_comp.h"
 #include "jsonwriter.hpp"
 #include "grazing.h"

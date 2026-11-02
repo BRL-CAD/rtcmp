@@ -29,6 +29,8 @@
 #include <time.h>
 
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 
 #include <brlcad/bu.h>
 
